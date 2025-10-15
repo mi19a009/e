@@ -12,6 +12,8 @@ dlldata.c
 locale
 release
 x64
+gresources.*
+gschemas.*
 *.aps
 *.compiled
 *.suo

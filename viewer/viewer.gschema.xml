@@ -1,0 +1,21 @@
+<?xml version="1.0" encoding="UTF-8"?>
+<schemalist>
+	<schema id="com.github.mi19a009.PictureViewer" path="/com/github/mi19a009/PictureViewer/">
+		<key name="window-fullscreen" type="b">
+			<default>false</default>
+			<summary>Window Fullscreen</summary>
+		</key>
+		<key name="window-height" type="i">
+			<default>400</default>
+			<summary>Window Height</summary>
+		</key>
+		<key name="window-maximized" type="b">
+			<default>false</default>
+			<summary>Window Maximized</summary>
+		</key>
+		<key name="window-width" type="i">
+			<default>600</default>
+			<summary>Window Width</summary>
+		</key>
+	</schema>
+</schemalist>
