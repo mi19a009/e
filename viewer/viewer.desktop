@@ -1,7 +1,6 @@
 [Desktop Entry]
 Name=Picture Viewer
-StartupNotify=true
-Type=Application
-Icon=com.github.mi19a009.PictureViewer
 Exec=com.github.mi19a009.PictureViewer
-X-Ubuntu-Gettext-Domain=github-mi19a009-e
+Icon=com.github.mi19a009.PictureViewer
+Type=Application
+StartupNotify=true

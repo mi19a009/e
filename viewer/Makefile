@@ -2,12 +2,12 @@
 CFLAGS  := $(shell pkg-config gtk4 --cflags) -Wall
 LIBS    := $(shell pkg-config gtk4 --libs)
 NAME    := com.github.mi19a009.PictureViewer
-BIN     := ~/.local/bin
-ENTRIES := ~/.local/share/applications
-ICONS   := ~/.local/share/icons/hicolor/48x48/apps
-SCHEMAS := ~/.local/share/glib-2.0/schemas
-OUT     := .
-TARGET  := .
+BIN     := $(HOME)/.local/bin
+ENTRIES := $(HOME)/.local/share/applications
+ICONS   := $(HOME)/.local/share/icons/hicolor/48x48/apps
+SCHEMAS := $(HOME)/.local/share/glib-2.0/schemas
+OUT     := build/viewer
+TARGET  := build
 GTK = \
 	$(TARGET)/main.o \
 	$(TARGET)/gresources.o
@@ -19,19 +19,16 @@ ASSETS = \
 	$(wildcard gtk/*.ui) \
 	$(wildcard icons/48x48/actions/*.png)
 .PHONY: build debug release
-all: build/viewer
-build: build/viewer
-debug: debug/viewer
-release: release/viewer
+all: $(OUT)
 schemas: gschemas.compiled
 clean:
 	rm -rf build debug release $(wildcard gresources.*) $(wildcard gschemas.*)
-install:
-	@$(MAKE) $(BIN)/$(NAME)
-	@$(MAKE) $(ENTRIES)/$(NAME).desktop
-	@$(MAKE) $(ICONS)/$(NAME).png
-	@$(MAKE) $(SCHEMAS)/$(NAME).gschema.xml
-	@$(MAKE) $(SCHEMAS)/gschemas.compiled
+install: \
+	$(BIN)/$(NAME) \
+	$(ENTRIES)/$(NAME).desktop \
+	$(ICONS)/$(NAME).png \
+	$(SCHEMAS)/$(NAME).gschema.xml \
+	$(SCHEMAS)/gschemas.compiled
 uninst:
 	$(RM) $(BIN)/$(NAME)
 	$(RM) $(ENTRIES)/$(NAME).desktop
@@ -39,12 +36,10 @@ uninst:
 	$(RM) $(SCHEMAS)/$(NAME).gschema.xml
 	glib-compile-schemas $(SCHEMAS)
 # Targets
-build/viewer:
-	@$(MAKE) $@ OUT=$@ TARGET=build
-debug/viewer:
-	@$(MAKE) $@ OUT=$@ TARGET=debug "CFLAGS = $(CFLAGS) -g -DG_ENABLE_DEBUG"
-release/viewer:
-	@$(MAKE) $@ OUT=$@ TARGET=release "CFLAGS = $(CFLAGS) -O2 -DNDEBUG -DG_DISABLE_ASSERT -DG_DISABLE_CAST_CHECKS"
+debug:
+	@$(MAKE) OUT=$@/viewer TARGET=debug "CFLAGS = $(CFLAGS) -g -DG_ENABLE_DEBUG"
+release:
+	@$(MAKE) OUT=$@/viewer TARGET=release "CFLAGS = $(CFLAGS) -O2 -DNDEBUG -DG_DISABLE_ASSERT -DG_DISABLE_CAST_CHECKS -DGETTEXT_PATH=\\\"$(HOME)/.local/share/locale\\\""
 # Sources
 gresources.c: viewer.gresources.xml $(ASSETS)
 	@echo $@
@@ -64,10 +59,10 @@ $(OUT): $(GTK) $(VIEWER)
 	@echo $@
 	@$(CC) $(CFLAGS) -o $@ $(GTK) $(VIEWER) $(LIBS)
 # Binaries
-$(BIN)/$(NAME): release/viewer
+$(BIN)/$(NAME): release
 	@echo $@
 	@mkdir -p $(BIN)
-	@cp $< $@
+	@cp $</viewer $@
 # Desktop Entries
 $(ENTRIES)/$(NAME).desktop: viewer.desktop
 	@echo $@
