@@ -9,6 +9,7 @@
 #define GSETTINGS_KEY     "GSETTINGS_SCHEMA_DIR"
 #define GSETTINGS_VALUE   "."
 #define LOCALE            ""
+#define RESOURCE_FORMAT "/com/github/mi19a009/PictureViewer/%s"
 #ifndef GETTEXT_PATH
 #define GETTEXT_PATH "locale"
 #endif
@@ -34,4 +35,13 @@ main (int argc, char *argv [])
 	exitcode = g_application_run (application, argc, argv);
 	g_object_unref (application);
 	return exitcode;
+}
+
+/*******************************************************************************
+リソースへのパスを取得します。
+*/
+int
+viewer_get_resource_path (char *buffer, size_t maxlen, const char *name)
+{
+	return g_snprintf (buffer, maxlen, RESOURCE_FORMAT, name);
 }
