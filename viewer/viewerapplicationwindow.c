@@ -147,6 +147,7 @@ viewer_application_window_draw (GtkDrawingArea *area, cairo_t *cairo, int width,
 	}
 	if (!self->surface && self->file)
 	{
+		self->surface = viewer_create_surface_from_file (cairo, self->file, NULL);
 	}
 	if (self->pattern)
 	{
@@ -213,6 +214,9 @@ viewer_application_window_init (ViewerApplicationWindow *self)
 	gtk_widget_init_template (GTK_WIDGET (self));
 	gtk_window_set_title (GTK_WINDOW (self), TITLE);
 	gtk_drawing_area_set_draw_func (GTK_DRAWING_AREA (self->area), viewer_application_window_draw, self, NULL);
+	self->background_blue = 0.3F;
+	self->background_green = 0.2F;
+	self->background_red = 0.1F;
 }
 
 /*******************************************************************************
@@ -255,6 +259,7 @@ viewer_application_window_set_background (ViewerApplicationWindow *self, float r
 		self->background_green = green;
 		self->background_blue = blue;
 		g_clear_pointer (&self->pattern, cairo_pattern_destroy);
+		gtk_widget_queue_draw (self->area);
 	}
 }
 
@@ -280,5 +285,6 @@ viewer_application_window_set_file (ViewerApplicationWindow *self, GFile *file)
 		}
 
 		g_clear_pointer (&self->surface, cairo_surface_destroy);
+		gtk_widget_queue_draw (self->area);
 	}
 }

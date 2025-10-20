@@ -12,6 +12,7 @@ GTK = \
 	$(TARGET)/main.o \
 	$(TARGET)/gresources.o
 VIEWER = \
+	$(TARGET)/viewer.o \
 	$(TARGET)/viewerapplication.o \
 	$(TARGET)/viewerapplicationwindow.o
 ASSETS = \
