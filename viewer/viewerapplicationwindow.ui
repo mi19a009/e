@@ -1,0 +1,52 @@
+<?xml version="1.0" encoding="UTF-8"?>
+<interface domain="gtk4">
+	<template class="ViewerApplicationWindow" parent="GtkApplicationWindow">
+		<property name="title" translatable="true">Picture Viewer</property>
+		<property name="icon-name">viewer</property>
+		<child>
+			<object class="GtkBox" id="content">
+				<property name="orientation">vertical</property>
+				<child>
+					<object class="GtkGrid" id="grid">
+						<child>
+							<object class="GtkDrawingArea" id="area">
+								<property name="hexpand">true</property>
+								<property name="vexpand">true</property>
+								<layout>
+									<property name="column">0</property>
+									<property name="row">0</property>
+								</layout>
+							</object>
+						</child>
+						<child>
+							<object class="GtkScrollbar" id="vscrollbar">
+								<property name="orientation">vertical</property>
+								<property name="vexpand">true</property>
+								<property name="adjustment">
+									<object class="GtkAdjustment" id="vadjustment" />
+								</property>
+								<layout>
+									<property name="column">1</property>
+									<property name="row">0</property>
+								</layout>
+							</object>
+						</child>
+						<child>
+							<object class="GtkScrollbar" id="hscrollbar">
+								<property name="orientation">horizontal</property>
+								<property name="hexpand">true</property>
+								<property name="adjustment">
+									<object class="GtkAdjustment" id="hadjustment" />
+								</property>
+								<layout>
+									<property name="column">0</property>
+									<property name="row">1</property>
+								</layout>
+							</object>
+						</child>
+					</object>
+				</child>
+			</object>
+		</child>
+	</template>
+</interface>

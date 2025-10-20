@@ -1,6 +1,6 @@
 /* Copyright (C) 2025 Taichi Murakami. */
 #include <gtk/gtk.h>
-#define VIEWER_RESOURCE_CCH 64
+#define VIEWER_RESOURCE_PATH_CCH 64
 #define VIEWER_TYPE_APPLICATION        (viewer_application_get_type        ())
 #define VIEWER_TYPE_APPLICATION_WINDOW (viewer_application_window_get_type ())
 
