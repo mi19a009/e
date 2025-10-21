@@ -20,7 +20,7 @@ ASSETS = \
 	$(wildcard gtk/*.ui) \
 	$(wildcard icons/48x48/actions/*.png)
 .PHONY: build debug release
-all: $(OUT)
+all: $(OUT) schemas
 schemas: gschemas.compiled
 clean:
 	rm -rf build debug release $(wildcard gresources.*) $(wildcard gschemas.*)

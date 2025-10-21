@@ -11,6 +11,7 @@ G_DECLARE_FINAL_TYPE (ViewerApplicationWindow, viewer_application_window, VIEWER
 cairo_surface_t *viewer_create_surface_from_file (cairo_t *cairo, GFile *file, GError **error);
 GResource       *viewer_get_resource             (void);
 int              viewer_get_resource_path        (char *buffer, size_t maxlen, const char *name);
+GSettings       *viewer_get_settings             (void);
 
 /* Viewer Application Window */
 void       viewer_application_window_get_background (ViewerApplicationWindow *self, float *red, float *green, float *blue);

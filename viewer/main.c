@@ -7,7 +7,7 @@
 #define GETTEXT_CODESET   "UTF-8"
 #define GETTEXT_PACKAGE   "github-mi19a009-e"
 #define GSETTINGS_KEY     "GSETTINGS_SCHEMA_DIR"
-#define GSETTINGS_VALUE   "."
+#define GSETTINGS_VALUE   "viewer"
 #define LOCALE            ""
 #define RESOURCE_FORMAT "/com/github/mi19a009/PictureViewer/%s"
 #ifndef GETTEXT_PATH
@@ -44,4 +44,13 @@ int
 viewer_get_resource_path (char *buffer, size_t maxlen, const char *name)
 {
 	return g_snprintf (buffer, maxlen, RESOURCE_FORMAT, name);
+}
+
+/*******************************************************************************
+アプリケーションの環境設定を取得します。
+*/
+GSettings *
+viewer_get_settings (void)
+{
+	return g_settings_new (APPLICATION_ID);
 }

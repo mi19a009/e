@@ -6,10 +6,15 @@
 #define ACTION_OPEN  "open"
 #define PROPERTY_APPLICATION               "application"
 #define PROPERTY_SHOW_MENUBAR              "show-menubar"
-#define SIGNAL_DESTROY "destroy"
+#define SIGNAL_DESTROY      "destroy"
+#define SIGNAL_NOTIFY_STATE "notify::state"
 #define RESOURCE_ABOUT        "gtk/about.ui"
 #define RESOURCE_ABOUT_DIALOG "dialog"
 #define RESOURCE_TEMPLATE     "viewerapplicationwindow.ui"
+#define SETTINGS_FULLSCREEN "window-fullscreen"
+#define SETTINGS_HEIGHT     "window-height"
+#define SETTINGS_MAXIMIZED  "window-maximized"
+#define SETTINGS_WIDTH      "window-width"
 #define TITLE _("Picture Viewer")
 
 /* Viewer Application Window クラスのインスタンス */
@@ -23,19 +28,32 @@ struct _ViewerApplicationWindow
 	float                background_red;
 	float                background_green;
 	float                background_blue;
+	int                  width;
+	int                  height;
+	unsigned char        fullscreen;
+	unsigned char        maximized;
 };
 
 static void     viewer_application_window_activate_about       (GSimpleAction *action, GVariant *parameter, gpointer user_data);
 static void     viewer_application_window_activate_open        (GSimpleAction *action, GVariant *parameter, gpointer user_data);
+static void     viewer_application_window_apply_settings       (ViewerApplicationWindow *self);
 static void     viewer_application_window_class_init           (ViewerApplicationWindowClass *this_class);
 static void     viewer_application_window_class_init_object    (GObjectClass *this_class);
 static void     viewer_application_window_class_init_widget    (GtkWidgetClass *this_class);
+static void     viewer_application_window_construct            (GObject *self);
 static void     viewer_application_window_destroy              (ViewerApplicationWindow *self);
 static void     viewer_application_window_dispose              (GObject *self);
 static void     viewer_application_window_draw                 (GtkDrawingArea *area, cairo_t *cairo, int width, int height, gpointer user_data);
 static gboolean viewer_application_window_get_background_equal (ViewerApplicationWindow *self, float red, float green, float blue);
 static void     viewer_application_window_init                 (ViewerApplicationWindow *self);
+static void     viewer_application_window_load_settings        (ViewerApplicationWindow *self);
+static void     viewer_application_window_realize              (GtkWidget *self);
+static void     viewer_application_window_resize               (GtkWidget *self, int width, int height, int baseline);
 static void     viewer_application_window_respond_open         (GObject *dialog, GAsyncResult *result, gpointer user_data);
+static void     viewer_application_window_save_settings        (ViewerApplicationWindow *self);
+static void     viewer_application_window_unrealize            (GtkWidget *self);
+static void     viewer_application_window_update_size          (ViewerApplicationWindow *self);
+static void     viewer_application_window_update_surface       (GObject *object, GParamSpec *pspec, gpointer user_data);
 
 /* Viewer Application Window クラス */
 G_DEFINE_TYPE (ViewerApplicationWindow, viewer_application_window, GTK_TYPE_APPLICATION_WINDOW);
@@ -80,6 +98,26 @@ viewer_application_window_activate_open (GSimpleAction *action, GVariant *parame
 }
 
 /*******************************************************************************
+環境設定を適用します。
+*/
+static void
+viewer_application_window_apply_settings (ViewerApplicationWindow *self)
+{
+	GtkWindow *window;
+	window = GTK_WINDOW (self);
+	gtk_window_set_default_size (window, self->width, self->height);
+
+	if (self->maximized)
+	{
+		gtk_window_maximize (window);
+	}
+	if (self->fullscreen)
+	{
+		gtk_window_fullscreen (window);
+	}
+}
+
+/*******************************************************************************
 クラスを初期化します。
 */
 static void
@@ -95,6 +133,7 @@ Object クラスを初期化します。
 static void
 viewer_application_window_class_init_object (GObjectClass *this_class)
 {
+	this_class->constructed = viewer_application_window_construct;
 	this_class->dispose = viewer_application_window_dispose;
 }
 
@@ -105,9 +144,23 @@ static void
 viewer_application_window_class_init_widget (GtkWidgetClass *this_class)
 {
 	char path [VIEWER_RESOURCE_PATH_CCH];
+	this_class->realize = viewer_application_window_realize;
+	this_class->size_allocate = viewer_application_window_resize;
+	this_class->unrealize = viewer_application_window_unrealize;
 	viewer_get_resource_path (path, VIEWER_RESOURCE_PATH_CCH, RESOURCE_TEMPLATE);
 	gtk_widget_class_set_template_from_resource (GTK_WIDGET_CLASS (this_class), path);
 	gtk_widget_class_bind_template_child (this_class, ViewerApplicationWindow, area);
+}
+
+/*******************************************************************************
+クラスのインスタンスを初期化します。
+*/
+static void
+viewer_application_window_construct (GObject *self)
+{
+	viewer_application_window_load_settings (VIEWER_APPLICATION_WINDOW (self));
+	viewer_application_window_apply_settings (VIEWER_APPLICATION_WINDOW (self));
+	G_OBJECT_CLASS (viewer_application_window_parent_class)->constructed (self);
 }
 
 /*******************************************************************************
@@ -127,6 +180,7 @@ viewer_application_window_destroy (ViewerApplicationWindow *self)
 static void
 viewer_application_window_dispose (GObject *self)
 {
+	viewer_application_window_save_settings (VIEWER_APPLICATION_WINDOW (self));
 	viewer_application_window_destroy (VIEWER_APPLICATION_WINDOW (self));
 	gtk_widget_dispose_template (GTK_WIDGET (self), VIEWER_TYPE_APPLICATION_WINDOW);
 	G_OBJECT_CLASS (viewer_application_window_parent_class)->dispose (self);
@@ -220,6 +274,21 @@ viewer_application_window_init (ViewerApplicationWindow *self)
 }
 
 /*******************************************************************************
+環境設定を開きます。
+*/
+static void
+viewer_application_window_load_settings (ViewerApplicationWindow *self)
+{
+	GSettings *settings;
+	settings = viewer_get_settings ();
+	self->width = g_settings_get_int (settings, SETTINGS_WIDTH);
+	self->height = g_settings_get_int (settings, SETTINGS_HEIGHT);
+	self->fullscreen = g_settings_get_boolean (settings, SETTINGS_FULLSCREEN);
+	self->maximized = g_settings_get_boolean (settings, SETTINGS_MAXIMIZED);
+	g_object_unref (settings);
+}
+
+/*******************************************************************************
 クラスのインスタンスを作成します。
 */
 GtkWidget *
@@ -229,6 +298,26 @@ viewer_application_window_new (GApplication *application)
 		PROPERTY_APPLICATION, application,
 		PROPERTY_SHOW_MENUBAR, TRUE,
 		NULL);
+}
+
+/*******************************************************************************
+ウィンドウを表示します。
+*/
+static void
+viewer_application_window_realize (GtkWidget *self)
+{
+	GTK_WIDGET_CLASS (viewer_application_window_parent_class)->realize (self);
+	g_signal_connect (gtk_native_get_surface (GTK_NATIVE (self)), SIGNAL_NOTIFY_STATE, G_CALLBACK (viewer_application_window_update_surface), self);
+}
+
+/*******************************************************************************
+ウィンドウの大きさを変更します。
+*/
+static void
+viewer_application_window_resize (GtkWidget *self, int width, int height, int baseline)
+{
+	GTK_WIDGET_CLASS (viewer_application_window_parent_class)->size_allocate (self, width, height, baseline);
+	viewer_application_window_update_size (VIEWER_APPLICATION_WINDOW (self));
 }
 
 /*******************************************************************************
@@ -287,4 +376,57 @@ viewer_application_window_set_file (ViewerApplicationWindow *self, GFile *file)
 		g_clear_pointer (&self->surface, cairo_surface_destroy);
 		gtk_widget_queue_draw (self->area);
 	}
+}
+
+/*******************************************************************************
+環境設定を保存します。
+*/
+static void
+viewer_application_window_save_settings (ViewerApplicationWindow *self)
+{
+	GSettings *settings;
+	settings = viewer_get_settings ();
+	g_settings_set_int (settings, SETTINGS_WIDTH, self->width);
+	g_settings_set_int (settings, SETTINGS_HEIGHT, self->height);
+	g_settings_set_boolean (settings, SETTINGS_FULLSCREEN, self->fullscreen);
+	g_settings_set_boolean (settings, SETTINGS_MAXIMIZED, self->maximized);
+	g_object_unref (settings);
+}
+
+/*******************************************************************************
+ウィンドウを隠蔽します。
+*/
+static void
+viewer_application_window_unrealize (GtkWidget *self)
+{
+	g_signal_handlers_disconnect_by_func (gtk_native_get_surface (GTK_NATIVE (self)), viewer_application_window_update_surface, self);
+	GTK_WIDGET_CLASS (viewer_application_window_parent_class)->unrealize (self);
+}
+
+/*******************************************************************************
+現在の大きさを更新します。
+*/
+static void
+viewer_application_window_update_size (ViewerApplicationWindow *self)
+{
+	if (!self->maximized && !self->fullscreen)
+	{
+		gtk_window_get_default_size (GTK_WINDOW (self), &self->width, &self->height);
+	}
+}
+
+/*******************************************************************************
+ウィンドウの大きさを変更します。
+*/
+static void
+viewer_application_window_update_surface (GObject *object, GParamSpec *pspec, gpointer user_data)
+{
+	ViewerApplicationWindow *self;
+	GdkSurface *surface;
+	GdkToplevelState state;
+	self = VIEWER_APPLICATION_WINDOW (user_data);
+	surface = GDK_SURFACE (object);
+	state = gdk_toplevel_get_state (GDK_TOPLEVEL (surface));
+	self->maximized = (state & GDK_TOPLEVEL_STATE_MAXIMIZED) != 0;
+	self->fullscreen = (state & GDK_TOPLEVEL_STATE_FULLSCREEN) != 0;
 }
