@@ -2,10 +2,11 @@
 #include <gtk/gtk.h>
 #include <glib/gi18n.h>
 #include "viewer.h"
-#define ACTION_ABOUT "show-about"
-#define ACTION_OPEN  "open"
-#define PROPERTY_APPLICATION               "application"
-#define PROPERTY_SHOW_MENUBAR              "show-menubar"
+#define ACTION_ABOUT      "show-about"
+#define ACTION_FULLSCREEN "fullscreen"
+#define ACTION_OPEN       "open"
+#define PROPERTY_APPLICATION  "application"
+#define PROPERTY_SHOW_MENUBAR "show-menubar"
 #define SIGNAL_DESTROY      "destroy"
 #define SIGNAL_NOTIFY_STATE "notify::state"
 #define RESOURCE_ABOUT        "gtk/about.ui"
@@ -46,6 +47,7 @@ struct _ViewerApplicationWindow
 };
 
 static void     viewer_application_window_activate_about       (GSimpleAction *action, GVariant *parameter, gpointer user_data);
+static void     viewer_application_window_activate_fullscreen  (GSimpleAction *action, GVariant *parameter, gpointer user_data);
 static void     viewer_application_window_activate_open        (GSimpleAction *action, GVariant *parameter, gpointer user_data);
 static void     viewer_application_window_apply_settings       (ViewerApplicationWindow *self);
 static void     viewer_application_window_class_init           (ViewerApplicationWindowClass *this_class);
@@ -108,8 +110,9 @@ G_DEFINE_TYPE (ViewerApplicationWindow, viewer_application_window, GTK_TYPE_APPL
 /* メニュー項目アクション */
 static const GActionEntry ACTION_ENTRIES [] =
 {
-	{ ACTION_ABOUT, viewer_application_window_activate_about, NULL, NULL, NULL },
-	{ ACTION_OPEN,  viewer_application_window_activate_open,  NULL, NULL, NULL },
+	{ ACTION_ABOUT,      viewer_application_window_activate_about,      NULL, NULL, NULL },
+	{ ACTION_FULLSCREEN, viewer_application_window_activate_fullscreen, NULL, NULL, NULL },
+	{ ACTION_OPEN,       viewer_application_window_activate_open,       NULL, NULL, NULL },
 };
 
 /*******************************************************************************
@@ -130,6 +133,22 @@ viewer_application_window_activate_about (GSimpleAction *action, GVariant *param
 	gtk_window_set_transient_for (dialog, GTK_WINDOW (user_data));
 	gtk_window_present (dialog);
 	g_object_unref (builder);
+}
+
+/*******************************************************************************
+ウィンドウを全画面表示します。
+*/
+static void
+viewer_application_window_activate_fullscreen (GSimpleAction *action, GVariant *parameter, gpointer user_data)
+{
+	if (VIEWER_APPLICATION_WINDOW (user_data)->fullscreen)
+	{
+		gtk_window_unfullscreen (GTK_WINDOW (user_data));
+	}
+	else
+	{
+		gtk_window_fullscreen (GTK_WINDOW (user_data));
+	}
 }
 
 /*******************************************************************************
