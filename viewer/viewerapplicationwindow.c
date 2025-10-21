@@ -3,6 +3,7 @@
 #include <glib/gi18n.h>
 #include "viewer.h"
 #define ACTION_ABOUT      "show-about"
+#define ACTION_BACKGROUND "background"
 #define ACTION_FULLSCREEN "fullscreen"
 #define ACTION_OPEN       "open"
 #define PROPERTY_APPLICATION  "application"
@@ -16,7 +17,9 @@
 #define SETTINGS_HEIGHT     "window-height"
 #define SETTINGS_MAXIMIZED  "window-maximized"
 #define SETTINGS_WIDTH      "window-width"
-#define TITLE _("Picture Viewer")
+#define TITLE            _("Picture Viewer")
+#define TITLE_BACKGROUND _("Background Color")
+#define TITLE_OPEN       _("Open File")
 
 /* Viewer Application Window クラスのプロパティ */
 enum _ViewerApplicationWindowProperties
@@ -47,6 +50,7 @@ struct _ViewerApplicationWindow
 };
 
 static void     viewer_application_window_activate_about       (GSimpleAction *action, GVariant *parameter, gpointer user_data);
+static void     viewer_application_window_activate_background  (GSimpleAction *action, GVariant *parameter, gpointer user_data);
 static void     viewer_application_window_activate_fullscreen  (GSimpleAction *action, GVariant *parameter, gpointer user_data);
 static void     viewer_application_window_activate_open        (GSimpleAction *action, GVariant *parameter, gpointer user_data);
 static void     viewer_application_window_apply_settings       (ViewerApplicationWindow *self);
@@ -63,6 +67,7 @@ static void     viewer_application_window_init                 (ViewerApplicatio
 static void     viewer_application_window_load_settings        (ViewerApplicationWindow *self);
 static void     viewer_application_window_realize              (GtkWidget *self);
 static void     viewer_application_window_resize               (GtkWidget *self, int width, int height, int baseline);
+static void     viewer_application_window_respond_background   (GObject *dialog, GAsyncResult *result, gpointer user_data);
 static void     viewer_application_window_respond_open         (GObject *dialog, GAsyncResult *result, gpointer user_data);
 static void     viewer_application_window_save_settings        (ViewerApplicationWindow *self);
 static void     viewer_application_window_set_property         (GObject *self, guint property_id, const GValue *value, GParamSpec *pspec);
@@ -111,6 +116,7 @@ G_DEFINE_TYPE (ViewerApplicationWindow, viewer_application_window, GTK_TYPE_APPL
 static const GActionEntry ACTION_ENTRIES [] =
 {
 	{ ACTION_ABOUT,      viewer_application_window_activate_about,      NULL, NULL, NULL },
+	{ ACTION_BACKGROUND, viewer_application_window_activate_background, NULL, NULL, NULL },
 	{ ACTION_FULLSCREEN, viewer_application_window_activate_fullscreen, NULL, NULL, NULL },
 	{ ACTION_OPEN,       viewer_application_window_activate_open,       NULL, NULL, NULL },
 };
@@ -133,6 +139,28 @@ viewer_application_window_activate_about (GSimpleAction *action, GVariant *param
 	gtk_window_set_transient_for (dialog, GTK_WINDOW (user_data));
 	gtk_window_present (dialog);
 	g_object_unref (builder);
+}
+
+/*******************************************************************************
+背景色を選択します。
+*/
+static void
+viewer_application_window_activate_background (GSimpleAction *action, GVariant *parameter, gpointer user_data)
+{
+	ViewerApplicationWindow *self;
+	GtkColorDialog *dialog;
+	GdkRGBA color;
+	self = VIEWER_APPLICATION_WINDOW (user_data);
+	color.red   = self->background_red;
+	color.green = self->background_green;
+	color.blue  = self->background_blue;
+	color.alpha = 0.0F;
+	dialog = gtk_color_dialog_new   ();
+	gtk_color_dialog_set_modal      (dialog, TRUE);
+	gtk_color_dialog_set_title      (dialog, TITLE_BACKGROUND);
+	gtk_color_dialog_set_with_alpha (dialog, FALSE);
+	gtk_color_dialog_choose_rgba    (dialog, GTK_WINDOW (user_data), &color, NULL, viewer_application_window_respond_background, user_data);
+	g_object_unref                  (dialog);
 }
 
 /*******************************************************************************
@@ -159,8 +187,10 @@ viewer_application_window_activate_open (GSimpleAction *action, GVariant *parame
 {
 	GtkFileDialog *dialog;
 	dialog = gtk_file_dialog_new ();
-	gtk_file_dialog_open (dialog, GTK_WINDOW (user_data), NULL, viewer_application_window_respond_open, user_data);
-	g_object_unref (dialog);
+	gtk_file_dialog_set_modal    (dialog, TRUE);
+	gtk_file_dialog_set_title    (dialog, TITLE_OPEN);
+	gtk_file_dialog_open         (dialog, GTK_WINDOW (user_data), NULL, viewer_application_window_respond_open, user_data);
+	g_object_unref               (dialog);
 }
 
 /*******************************************************************************
@@ -421,6 +451,22 @@ viewer_application_window_resize (GtkWidget *self, int width, int height, int ba
 {
 	GTK_WIDGET_CLASS (viewer_application_window_parent_class)->size_allocate (self, width, height, baseline);
 	viewer_application_window_update_size (VIEWER_APPLICATION_WINDOW (self));
+}
+
+/*******************************************************************************
+背景色を選択します。
+*/
+static void
+viewer_application_window_respond_background (GObject *dialog, GAsyncResult *result, gpointer user_data)
+{
+	GdkRGBA *color;
+	color = gtk_color_dialog_choose_rgba_finish (GTK_COLOR_DIALOG (dialog), result, NULL);
+
+	if (color)
+	{
+		viewer_application_window_set_background (VIEWER_APPLICATION_WINDOW (user_data), color->red, color->green, color->blue);
+		g_free (color);
+	}
 }
 
 /*******************************************************************************

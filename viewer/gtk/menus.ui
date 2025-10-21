@@ -64,6 +64,13 @@
 					<attribute name="accel">F11</attribute>
 				</item>
 			</section>
+			<section>
+				<item>
+					<attribute name="label" translatable="true">_Background Color</attribute>
+					<attribute name="action">win.background</attribute>
+					<attribute name="accel">F12</attribute>
+				</item>
+			</section>
 		</submenu>
 		<submenu>
 			<attribute name="label" translatable="true">_Help</attribute>
