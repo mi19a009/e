@@ -17,6 +17,17 @@
 #define SETTINGS_WIDTH      "window-width"
 #define TITLE _("Picture Viewer")
 
+/* Viewer Application Window クラスのプロパティ */
+enum _ViewerApplicationWindowProperties
+{
+	NULL_PROPERTY_ID,
+	BACKGROUND_BLUE_PROPERTY_ID,
+	BACKGROUND_GREEN_PROPERTY_ID,
+	BACKGROUND_RED_PROPERTY_ID,
+	FILE_PROPERTY_ID,
+	VIEWER_APPLICATION_WINDOW_N_PROPERTIES,
+};
+
 /* Viewer Application Window クラスのインスタンス */
 struct _ViewerApplicationWindow
 {
@@ -45,18 +56,54 @@ static void     viewer_application_window_destroy              (ViewerApplicatio
 static void     viewer_application_window_dispose              (GObject *self);
 static void     viewer_application_window_draw                 (GtkDrawingArea *area, cairo_t *cairo, int width, int height, gpointer user_data);
 static gboolean viewer_application_window_get_background_equal (ViewerApplicationWindow *self, float red, float green, float blue);
+static void     viewer_application_window_get_property         (GObject *self, guint property_id, GValue *value, GParamSpec *pspec);
 static void     viewer_application_window_init                 (ViewerApplicationWindow *self);
 static void     viewer_application_window_load_settings        (ViewerApplicationWindow *self);
 static void     viewer_application_window_realize              (GtkWidget *self);
 static void     viewer_application_window_resize               (GtkWidget *self, int width, int height, int baseline);
 static void     viewer_application_window_respond_open         (GObject *dialog, GAsyncResult *result, gpointer user_data);
 static void     viewer_application_window_save_settings        (ViewerApplicationWindow *self);
+static void     viewer_application_window_set_property         (GObject *self, guint property_id, const GValue *value, GParamSpec *pspec);
 static void     viewer_application_window_unrealize            (GtkWidget *self);
 static void     viewer_application_window_update_size          (ViewerApplicationWindow *self);
 static void     viewer_application_window_update_surface       (GObject *object, GParamSpec *pspec, gpointer user_data);
 
 /* Viewer Application Window クラス */
 G_DEFINE_TYPE (ViewerApplicationWindow, viewer_application_window, GTK_TYPE_APPLICATION_WINDOW);
+
+/* Background Blue プロパティ */
+#define BACKGROUND_BLUE_PROPERTY_NAME           "background-blue"
+#define BACKGROUND_BLUE_PROPERTY_NICK           "Background Blue"
+#define BACKGROUND_BLUE_PROPERTY_BLURB          "Background Blue"
+#define BACKGROUND_BLUE_PROPERTY_MINIMUM_VALUE  0.0F
+#define BACKGROUND_BLUE_PROPERTY_MAXIMUM_VALUE  1.0F
+#define BACKGROUND_BLUE_PROPERTY_DEFAULT_VALUE  0.3F
+#define BACKGROUND_BLUE_PROPERTY_FLAGS          G_PARAM_READWRITE
+
+/* Background Green プロパティ */
+#define BACKGROUND_GREEN_PROPERTY_NAME          "background-green"
+#define BACKGROUND_GREEN_PROPERTY_NICK          "Background Green"
+#define BACKGROUND_GREEN_PROPERTY_BLURB         "Background Green"
+#define BACKGROUND_GREEN_PROPERTY_MINIMUM_VALUE 0.0F
+#define BACKGROUND_GREEN_PROPERTY_MAXIMUM_VALUE 1.0F
+#define BACKGROUND_GREEN_PROPERTY_DEFAULT_VALUE 0.2F
+#define BACKGROUND_GREEN_PROPERTY_FLAGS         G_PARAM_READWRITE
+
+/* Background Red プロパティ */
+#define BACKGROUND_RED_PROPERTY_NAME          "background-red"
+#define BACKGROUND_RED_PROPERTY_NICK          "Background Red"
+#define BACKGROUND_RED_PROPERTY_BLURB         "Background Red"
+#define BACKGROUND_RED_PROPERTY_MINIMUM_VALUE 0.0F
+#define BACKGROUND_RED_PROPERTY_MAXIMUM_VALUE 1.0F
+#define BACKGROUND_RED_PROPERTY_DEFAULT_VALUE 0.1F
+#define BACKGROUND_RED_PROPERTY_FLAGS         G_PARAM_READWRITE
+
+/* Background File プロパティ */
+#define FILE_PROPERTY_NAME        "file"
+#define FILE_PROPERTY_NICK        "File"
+#define FILE_PROPERTY_BLURB       "File"
+#define FILE_PROPERTY_OBJECT_TYPE G_TYPE_FILE
+#define FILE_PROPERTY_FLAGS       G_PARAM_READWRITE
 
 /* メニュー項目アクション */
 static const GActionEntry ACTION_ENTRIES [] =
@@ -133,8 +180,16 @@ Object クラスを初期化します。
 static void
 viewer_application_window_class_init_object (GObjectClass *this_class)
 {
-	this_class->constructed = viewer_application_window_construct;
-	this_class->dispose = viewer_application_window_dispose;
+	GParamSpec *pspecs [VIEWER_APPLICATION_WINDOW_N_PROPERTIES] = { NULL };
+	pspecs [BACKGROUND_BLUE_PROPERTY_ID]  = PARAM_SPEC_FLOAT  (BACKGROUND_BLUE_PROPERTY);
+	pspecs [BACKGROUND_GREEN_PROPERTY_ID] = PARAM_SPEC_FLOAT  (BACKGROUND_GREEN_PROPERTY);
+	pspecs [BACKGROUND_RED_PROPERTY_ID]   = PARAM_SPEC_FLOAT  (BACKGROUND_RED_PROPERTY);
+	pspecs [FILE_PROPERTY_ID]             = PARAM_SPEC_OBJECT (FILE_PROPERTY);
+	this_class->constructed  = viewer_application_window_construct;
+	this_class->dispose      = viewer_application_window_dispose;
+	this_class->get_property = viewer_application_window_get_property;
+	this_class->set_property = viewer_application_window_set_property;
+	g_object_class_install_properties (this_class, G_N_ELEMENTS (pspecs), pspecs);
 }
 
 /*******************************************************************************
@@ -144,9 +199,9 @@ static void
 viewer_application_window_class_init_widget (GtkWidgetClass *this_class)
 {
 	char path [VIEWER_RESOURCE_PATH_CCH];
-	this_class->realize = viewer_application_window_realize;
+	this_class->realize       = viewer_application_window_realize;
 	this_class->size_allocate = viewer_application_window_resize;
-	this_class->unrealize = viewer_application_window_unrealize;
+	this_class->unrealize     = viewer_application_window_unrealize;
 	viewer_get_resource_path (path, VIEWER_RESOURCE_PATH_CCH, RESOURCE_TEMPLATE);
 	gtk_widget_class_set_template_from_resource (GTK_WIDGET_CLASS (this_class), path);
 	gtk_widget_class_bind_template_child (this_class, ViewerApplicationWindow, area);
@@ -259,18 +314,47 @@ viewer_application_window_get_file (ViewerApplicationWindow *self)
 }
 
 /*******************************************************************************
+プロパティを取得します。
+*/
+static void
+viewer_application_window_get_property (GObject *self, guint property_id, GValue *value, GParamSpec *pspec)
+{
+	ViewerApplicationWindow *properties;
+	properties = VIEWER_APPLICATION_WINDOW (self);
+
+	switch (property_id)
+	{
+	case BACKGROUND_BLUE_PROPERTY_ID:
+		g_value_set_float (value, properties->background_blue);
+		break;
+	case BACKGROUND_GREEN_PROPERTY_ID:
+		g_value_set_float (value, properties->background_green);
+		break;
+	case BACKGROUND_RED_PROPERTY_ID:
+		g_value_set_float (value, properties->background_red);
+		break;
+	case FILE_PROPERTY_ID:
+		g_value_set_object (value, properties->file);
+		break;
+	default:
+		G_OBJECT_WARN_INVALID_PROPERTY_ID (self, property_id, pspec);
+		break;
+	}
+}
+
+/*******************************************************************************
 クラスのインスタンスを初期化します。
 */
 static void
 viewer_application_window_init (ViewerApplicationWindow *self)
 {
 	g_action_map_add_action_entries (G_ACTION_MAP (self), ACTION_ENTRIES, G_N_ELEMENTS (ACTION_ENTRIES), self);
-	gtk_widget_init_template (GTK_WIDGET (self));
-	gtk_window_set_title (GTK_WINDOW (self), TITLE);
-	gtk_drawing_area_set_draw_func (GTK_DRAWING_AREA (self->area), viewer_application_window_draw, self, NULL);
-	self->background_blue = 0.3F;
-	self->background_green = 0.2F;
-	self->background_red = 0.1F;
+	gtk_widget_init_template        (GTK_WIDGET (self));
+	gtk_window_set_title            (GTK_WINDOW (self), TITLE);
+	gtk_drawing_area_set_draw_func  (GTK_DRAWING_AREA (self->area), viewer_application_window_draw, self, NULL);
+	self->background_blue  = BACKGROUND_BLUE_PROPERTY_DEFAULT_VALUE;
+	self->background_green = BACKGROUND_GREEN_PROPERTY_DEFAULT_VALUE;
+	self->background_red   = BACKGROUND_RED_PROPERTY_DEFAULT_VALUE;
 }
 
 /*******************************************************************************
@@ -280,11 +364,11 @@ static void
 viewer_application_window_load_settings (ViewerApplicationWindow *self)
 {
 	GSettings *settings;
-	settings = viewer_get_settings ();
-	self->width = g_settings_get_int (settings, SETTINGS_WIDTH);
-	self->height = g_settings_get_int (settings, SETTINGS_HEIGHT);
+	settings         = viewer_get_settings    ();
+	self->width      = g_settings_get_int     (settings, SETTINGS_WIDTH);
+	self->height     = g_settings_get_int     (settings, SETTINGS_HEIGHT);
 	self->fullscreen = g_settings_get_boolean (settings, SETTINGS_FULLSCREEN);
-	self->maximized = g_settings_get_boolean (settings, SETTINGS_MAXIMIZED);
+	self->maximized  = g_settings_get_boolean (settings, SETTINGS_MAXIMIZED);
 	g_object_unref (settings);
 }
 
@@ -337,6 +421,21 @@ viewer_application_window_respond_open (GObject *dialog, GAsyncResult *result, g
 }
 
 /*******************************************************************************
+環境設定を保存します。
+*/
+static void
+viewer_application_window_save_settings (ViewerApplicationWindow *self)
+{
+	GSettings *settings;
+	settings = viewer_get_settings ();
+	g_settings_set_int (settings, SETTINGS_WIDTH, self->width);
+	g_settings_set_int (settings, SETTINGS_HEIGHT, self->height);
+	g_settings_set_boolean (settings, SETTINGS_FULLSCREEN, self->fullscreen);
+	g_settings_set_boolean (settings, SETTINGS_MAXIMIZED, self->maximized);
+	g_object_unref (settings);
+}
+
+/*******************************************************************************
 現在の背景色を設定します。
 */
 void
@@ -379,18 +478,32 @@ viewer_application_window_set_file (ViewerApplicationWindow *self, GFile *file)
 }
 
 /*******************************************************************************
-環境設定を保存します。
+プロパティを設定します。
 */
 static void
-viewer_application_window_save_settings (ViewerApplicationWindow *self)
+viewer_application_window_set_property (GObject *self, guint property_id, const GValue *value, GParamSpec *pspec)
 {
-	GSettings *settings;
-	settings = viewer_get_settings ();
-	g_settings_set_int (settings, SETTINGS_WIDTH, self->width);
-	g_settings_set_int (settings, SETTINGS_HEIGHT, self->height);
-	g_settings_set_boolean (settings, SETTINGS_FULLSCREEN, self->fullscreen);
-	g_settings_set_boolean (settings, SETTINGS_MAXIMIZED, self->maximized);
-	g_object_unref (settings);
+	ViewerApplicationWindow *properties;
+	properties = VIEWER_APPLICATION_WINDOW (self);
+
+	switch (property_id)
+	{
+	case BACKGROUND_BLUE_PROPERTY_ID:
+		viewer_application_window_set_background (properties, properties->background_red, properties->background_green, g_value_get_float (value));
+		break;
+	case BACKGROUND_GREEN_PROPERTY_ID:
+		viewer_application_window_set_background (properties, properties->background_red, g_value_get_float (value), properties->background_blue);
+		break;
+	case BACKGROUND_RED_PROPERTY_ID:
+		viewer_application_window_set_background (properties, g_value_get_float (value), properties->background_green, properties->background_blue);
+		break;
+	case FILE_PROPERTY_ID:
+		viewer_application_window_set_file (properties, g_value_get_object (value));
+		break;
+	default:
+		G_OBJECT_WARN_INVALID_PROPERTY_ID (self, property_id, pspec);
+		break;
+	}
 }
 
 /*******************************************************************************
