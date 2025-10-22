@@ -29,6 +29,7 @@ enum _ViewerApplicationWindowProperties
 	BACKGROUND_GREEN_PROPERTY_ID,
 	BACKGROUND_RED_PROPERTY_ID,
 	FILE_PROPERTY_ID,
+	ZOOM_PROPERTY_ID,
 	VIEWER_APPLICATION_WINDOW_N_PROPERTIES,
 };
 
@@ -43,6 +44,7 @@ struct _ViewerApplicationWindow
 	float                background_red;
 	float                background_green;
 	float                background_blue;
+	float                zoom;
 	int                  width;
 	int                  height;
 	unsigned char        fullscreen;
@@ -105,12 +107,21 @@ G_DEFINE_TYPE (ViewerApplicationWindow, viewer_application_window, GTK_TYPE_APPL
 #define BACKGROUND_RED_PROPERTY_DEFAULT_VALUE 0.1F
 #define BACKGROUND_RED_PROPERTY_FLAGS         G_PARAM_READWRITE
 
-/* Background File プロパティ */
+/* File プロパティ */
 #define FILE_PROPERTY_NAME        "file"
 #define FILE_PROPERTY_NICK        "File"
 #define FILE_PROPERTY_BLURB       "File"
 #define FILE_PROPERTY_OBJECT_TYPE G_TYPE_FILE
 #define FILE_PROPERTY_FLAGS       G_PARAM_READWRITE
+
+/* Zoom プロパティ */
+#define ZOOM_PROPERTY_NAME          "zoom"
+#define ZOOM_PROPERTY_NICK          "Zoom"
+#define ZOOM_PROPERTY_BLURB         "Zoom"
+#define ZOOM_PROPERTY_MINIMUM_VALUE FLT_MIN
+#define ZOOM_PROPERTY_MAXIMUM_VALUE FLT_MAX
+#define ZOOM_PROPERTY_DEFAULT_VALUE 1.0F
+#define ZOOM_PROPERTY_FLAGS         G_PARAM_READWRITE
 
 /* メニュー項目アクション */
 static const GActionEntry ACTION_ENTRIES [] =
@@ -234,6 +245,7 @@ viewer_application_window_class_init_object (GObjectClass *this_class)
 	pspecs [BACKGROUND_GREEN_PROPERTY_ID] = PARAM_SPEC_FLOAT  (BACKGROUND_GREEN_PROPERTY);
 	pspecs [BACKGROUND_RED_PROPERTY_ID]   = PARAM_SPEC_FLOAT  (BACKGROUND_RED_PROPERTY);
 	pspecs [FILE_PROPERTY_ID]             = PARAM_SPEC_OBJECT (FILE_PROPERTY);
+	pspecs [ZOOM_PROPERTY_ID]             = PARAM_SPEC_FLOAT  (ZOOM_PROPERTY);
 	this_class->constructed  = viewer_application_window_construct;
 	this_class->dispose      = viewer_application_window_dispose;
 	this_class->get_property = viewer_application_window_get_property;
@@ -314,6 +326,7 @@ viewer_application_window_draw (GtkDrawingArea *area, cairo_t *cairo, int width,
 	}
 	if (self->surface)
 	{
+		cairo_scale (cairo, self->zoom, self->zoom);
 		cairo_set_source_surface (cairo, self->surface, 0, 0);
 		cairo_paint (cairo);
 	}
@@ -385,10 +398,22 @@ viewer_application_window_get_property (GObject *self, guint property_id, GValue
 	case FILE_PROPERTY_ID:
 		g_value_set_object (value, properties->file);
 		break;
+	case ZOOM_PROPERTY_ID:
+		g_value_set_float (value, properties->zoom);
+		break;
 	default:
 		G_OBJECT_WARN_INVALID_PROPERTY_ID (self, property_id, pspec);
 		break;
 	}
+}
+
+/*******************************************************************************
+現在の拡大率を取得します。
+*/
+float
+viewer_application_window_get_zoom (ViewerApplicationWindow *self)
+{
+	return self->zoom;
 }
 
 /*******************************************************************************
@@ -404,6 +429,7 @@ viewer_application_window_init (ViewerApplicationWindow *self)
 	self->background_blue  = BACKGROUND_BLUE_PROPERTY_DEFAULT_VALUE;
 	self->background_green = BACKGROUND_GREEN_PROPERTY_DEFAULT_VALUE;
 	self->background_red   = BACKGROUND_RED_PROPERTY_DEFAULT_VALUE;
+	self->zoom             = ZOOM_PROPERTY_DEFAULT_VALUE;
 }
 
 /*******************************************************************************
@@ -565,9 +591,25 @@ viewer_application_window_set_property (GObject *self, guint property_id, const 
 	case FILE_PROPERTY_ID:
 		viewer_application_window_set_file (properties, g_value_get_object (value));
 		break;
+	case ZOOM_PROPERTY_ID:
+		viewer_application_window_set_zoom (properties, g_value_get_float (value));
+		break;
 	default:
 		G_OBJECT_WARN_INVALID_PROPERTY_ID (self, property_id, pspec);
 		break;
+	}
+}
+
+/*******************************************************************************
+現在の拡大率を設定します。
+*/
+void
+viewer_application_window_set_zoom (ViewerApplicationWindow *self, float zoom)
+{
+	if (self->zoom != zoom)
+	{
+		self->zoom = zoom;
+		gtk_widget_queue_draw (self->area);
 	}
 }
 

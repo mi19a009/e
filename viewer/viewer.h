@@ -19,6 +19,8 @@ GSettings       *viewer_get_settings             (void);
 /* Viewer Application Window */
 void       viewer_application_window_get_background (ViewerApplicationWindow *self, float *red, float *green, float *blue);
 GFile     *viewer_application_window_get_file       (ViewerApplicationWindow *self);
+float      viewer_application_window_get_zoom       (ViewerApplicationWindow *self);
 GtkWidget *viewer_application_window_new            (GApplication *application);
 void       viewer_application_window_set_background (ViewerApplicationWindow *self, float red, float green, float blue);
 void       viewer_application_window_set_file       (ViewerApplicationWindow *self, GFile *file);
+void       viewer_application_window_set_zoom       (ViewerApplicationWindow *self, float zoom);
