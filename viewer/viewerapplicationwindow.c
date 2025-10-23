@@ -20,8 +20,11 @@
 #define SETTINGS_HEIGHT       "window-height"
 #define SETTINGS_MAXIMIZED    "window-maximized"
 #define SETTINGS_WIDTH        "window-width"
+#define SIGNAL_BEGIN          "begin"
 #define SIGNAL_DESTROY        "destroy"
+#define SIGNAL_END            "end"
 #define SIGNAL_NOTIFY_STATE   "notify::state"
+#define SIGNAL_SCALE_CHANGED  "scale-changed"
 #define TITLE                 _("Picture Viewer")
 #define TITLE_BACKGROUND      _("Background Color")
 #define TITLE_CCH             256
@@ -53,6 +56,7 @@ struct _ViewerApplicationWindow
 	float                background_green;
 	float                background_blue;
 	float                zoom;
+	float                zoom_origin;
 	int                  width;
 	int                  height;
 	unsigned char        fullscreen;
@@ -67,6 +71,8 @@ static void     viewer_application_window_activate_restore_zoom (GSimpleAction *
 static void     viewer_application_window_activate_zoom_in      (GSimpleAction *action, GVariant *parameter, gpointer user_data);
 static void     viewer_application_window_activate_zoom_out     (GSimpleAction *action, GVariant *parameter, gpointer user_data);
 static void     viewer_application_window_apply_settings        (ViewerApplicationWindow *self);
+static void     viewer_application_window_begin_zoom            (GtkGesture *gesture, GdkEventSequence *sequence, gpointer user_data);
+static void     viewer_application_window_change_zoom           (GtkGestureZoom *gesture, gdouble scale, gpointer user_data);
 static void     viewer_application_window_class_init            (ViewerApplicationWindowClass *this_class);
 static void     viewer_application_window_class_init_object     (GObjectClass *this_class);
 static void     viewer_application_window_class_init_widget     (GtkWidgetClass *this_class);
@@ -74,9 +80,11 @@ static void     viewer_application_window_construct             (GObject *self);
 static void     viewer_application_window_destroy               (ViewerApplicationWindow *self);
 static void     viewer_application_window_dispose               (GObject *self);
 static void     viewer_application_window_draw                  (GtkDrawingArea *area, cairo_t *cairo, int width, int height, gpointer user_data);
+static void     viewer_application_window_end_zoom              (GtkGesture *gesture, GdkEventSequence *sequence, gpointer user_data);
 static gboolean viewer_application_window_get_background_equal  (ViewerApplicationWindow *self, float red, float green, float blue);
 static void     viewer_application_window_get_property          (GObject *self, guint property_id, GValue *value, GParamSpec *pspec);
 static void     viewer_application_window_init                  (ViewerApplicationWindow *self);
+static void     viewer_application_window_init_gestures         (ViewerApplicationWindow *self);
 static void     viewer_application_window_load_settings         (ViewerApplicationWindow *self);
 static void     viewer_application_window_realize               (GtkWidget *self);
 static void     viewer_application_window_resize                (GtkWidget *self, int width, int height, int baseline);
@@ -272,6 +280,28 @@ viewer_application_window_apply_settings (ViewerApplicationWindow *self)
 }
 
 /*******************************************************************************
+拡大を開始します。
+*/
+static void
+viewer_application_window_begin_zoom (GtkGesture *gesture, GdkEventSequence *sequence, gpointer user_data)
+{
+	ViewerApplicationWindow *self;
+	self = VIEWER_APPLICATION_WINDOW (user_data);
+	self->zoom_origin = self->zoom;
+}
+
+/*******************************************************************************
+拡大率を変更します。
+*/
+static void
+viewer_application_window_change_zoom (GtkGestureZoom *gesture, gdouble scale, gpointer user_data)
+{
+	ViewerApplicationWindow *self;
+	self = VIEWER_APPLICATION_WINDOW (user_data);
+	viewer_application_window_set_zoom (self, self->zoom_origin * scale);
+}
+
+/*******************************************************************************
 クラスを初期化します。
 */
 static void
@@ -383,6 +413,17 @@ viewer_application_window_draw (GtkDrawingArea *area, cairo_t *cairo, int width,
 }
 
 /*******************************************************************************
+拡大を終了します。
+*/
+static void
+viewer_application_window_end_zoom (GtkGesture *gesture, GdkEventSequence *sequence, gpointer user_data)
+{
+	ViewerApplicationWindow *self;
+	self = VIEWER_APPLICATION_WINDOW (user_data);
+	self->zoom_origin = 0;
+}
+
+/*******************************************************************************
 現在の背景色を取得します。
 */
 void
@@ -479,7 +520,22 @@ viewer_application_window_init (ViewerApplicationWindow *self)
 	self->background_green = BACKGROUND_GREEN_PROPERTY_DEFAULT_VALUE;
 	self->background_red   = BACKGROUND_RED_PROPERTY_DEFAULT_VALUE;
 	self->zoom             = ZOOM_PROPERTY_DEFAULT_VALUE;
+	viewer_application_window_init_gestures (self);
 	viewer_application_window_update_title (self);
+}
+
+/*******************************************************************************
+ジェスチャを追加します。
+*/
+static void
+viewer_application_window_init_gestures (ViewerApplicationWindow *self)
+{
+	GtkGesture *gesture;
+	gesture = gtk_gesture_zoom_new ();
+	g_signal_connect (gesture, SIGNAL_BEGIN,         G_CALLBACK (viewer_application_window_begin_zoom),  self);
+	g_signal_connect (gesture, SIGNAL_END,           G_CALLBACK (viewer_application_window_end_zoom),    self);
+	g_signal_connect (gesture, SIGNAL_SCALE_CHANGED, G_CALLBACK (viewer_application_window_change_zoom), self);
+	gtk_widget_add_controller (self->area, GTK_EVENT_CONTROLLER (gesture));
 }
 
 /*******************************************************************************
