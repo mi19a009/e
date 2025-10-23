@@ -1,7 +1,6 @@
 <?xml version="1.0" encoding="UTF-8"?>
 <interface domain="gtk4">
 	<template class="ViewerApplicationWindow" parent="GtkApplicationWindow">
-		<property name="title" translatable="true">Picture Viewer</property>
 		<property name="icon-name">viewer</property>
 		<child>
 			<object class="GtkBox" id="content">

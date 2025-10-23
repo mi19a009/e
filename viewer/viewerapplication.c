@@ -7,10 +7,18 @@
 #define PROPERTY_APPLICATION_ID "application-id"
 #define PROPERTY_FLAGS          "flags"
 
+typedef struct _ViewerApplicationAccelEntry ViewerApplicationAccelEntry;
+
 /* Viewer Application クラスのインスタンス */
 struct _ViewerApplication
 {
 	GtkApplication parent_instance;
+};
+
+struct _ViewerApplicationAccelEntry
+{
+	const char  *detailed_action_name;
+	const char **accels;
 };
 
 static void viewer_application_activate                   (GApplication *self);
@@ -18,14 +26,36 @@ static void viewer_application_activate_new               (GSimpleAction *action
 static void viewer_application_class_init                 (ViewerApplicationClass *self);
 static void viewer_application_class_init_application     (GApplicationClass *self);
 static void viewer_application_init                       (ViewerApplication *self);
-static void viewer_application_init_accels                (ViewerApplication *self);
-static void viewer_application_init_accels_for_attributes (GtkApplication *self, GMenuModel *model);
-static void viewer_application_init_accels_for_links      (GtkApplication *self, GMenuModel *model);
+static void viewer_application_init_accels                (GtkApplication *self);
 static void viewer_application_open                       (GApplication *self, GFile **files, int n_files, const char *hint);
 static void viewer_application_startup                    (GApplication *self);
 
 /* Viewer Application クラス */
 G_DEFINE_TYPE (ViewerApplication, viewer_application, GTK_TYPE_APPLICATION);
+static const char *ACCELS_BACKGROUND   [] = { "F12", NULL };
+static const char *ACCELS_CLOSE        [] = { "<Ctrl>q", NULL };
+static const char *ACCELS_FULLSCREEN   [] = { "F11", NULL };
+static const char *ACCELS_HELP_OVERLAY [] = { "<Ctrl>question", "<Ctrl>slash", NULL };
+static const char *ACCELS_NEW          [] = { "<Ctrl>n", NULL };
+static const char *ACCELS_OPEN         [] = { "<Ctrl>o", NULL };
+static const char *ACCELS_RESTORE_ZOOM [] = { "<Ctrl>0", NULL };
+static const char *ACCELS_ZOOM_IN      [] = { "<Ctrl>plus", "<Ctrl>semicolon", NULL };
+static const char *ACCELS_ZOOM_OUT     [] = { "<Ctrl>minus", NULL };
+
+/* メニュー アクセラレーター */
+static const ViewerApplicationAccelEntry
+ACCEL_ENTRIES [] =
+{
+	{ "win.background",        ACCELS_BACKGROUND   },
+	{ "window.close",          ACCELS_CLOSE        },
+	{ "win.fullscreen",        ACCELS_FULLSCREEN   },
+	{ "win.show-help-overlay", ACCELS_HELP_OVERLAY },
+	{ "app.new",               ACCELS_NEW          },
+	{ "win.open",              ACCELS_OPEN         },
+	{ "win.restore-zoom",      ACCELS_RESTORE_ZOOM },
+	{ "win.zoom-in",           ACCELS_ZOOM_IN      },
+	{ "win.zoom-out",          ACCELS_ZOOM_OUT     },
+};
 
 /* メニュー アクション */
 static const GActionEntry
@@ -86,81 +116,18 @@ viewer_application_init (ViewerApplication *self)
 
 /*******************************************************************************
 アクセラレーターを初期化します。
-メニュー バーからアクセラレーターを取得します。
 */
 static void
-viewer_application_init_accels (ViewerApplication *self)
+viewer_application_init_accels (GtkApplication *self)
 {
-	GMenuModel *menubar;
-	menubar = gtk_application_get_menubar (GTK_APPLICATION (self));
+	const ViewerApplicationAccelEntry *entries;
+	int n;
+	entries = ACCEL_ENTRIES;
 
-	if (menubar)
+	for (n = 0; n < G_N_ELEMENTS (ACCEL_ENTRIES); n++)
 	{
-		viewer_application_init_accels_for_links (GTK_APPLICATION (self), menubar);
-		g_object_unref (menubar);
-	}
-}
-
-/*******************************************************************************
-アクセラレーターを初期化します。
-指定したメニューの属性を列挙します。
-アプリケーションにアクセラレーターを設定します。
-*/
-static void
-viewer_application_init_accels_for_attributes (GtkApplication *self, GMenuModel *model)
-{
-	GVariant *accel, *action;
-	const char *name, *accels [2];
-	int n, n_items;
-	accels [1] = NULL;
-	n_items = g_menu_model_get_n_items (model);
-
-	for (n = 0; n < n_items; n++)
-	{
-		accel = g_menu_model_get_item_attribute_value (model, n, ATTRIBUTE_ACCEL, G_VARIANT_TYPE_STRING);
-
-		if (accel)
-		{
-			action = g_menu_model_get_item_attribute_value (model, n, ATTRIBUTE_ACTION, G_VARIANT_TYPE_STRING);
-
-			if (action)
-			{
-				name = g_variant_get_string (action, NULL);
-				accels [0] = g_variant_get_string (accel, NULL);
-				gtk_application_set_accels_for_action (self, name, accels);
-				g_variant_unref (action);
-			}
-
-			g_variant_unref (accel);
-		}
-	}
-}
-
-/*******************************************************************************
-アクセラレーターを初期化します。
-指定したメニューのリンクを列挙します。
-*/
-static void
-viewer_application_init_accels_for_links (GtkApplication *self, GMenuModel *model)
-{
-	GMenuLinkIter *links;
-	GMenuModel *link;
-	int n, n_items;
-	n_items = g_menu_model_get_n_items (model);
-
-	for (n = 0; n < n_items; n++)
-	{
-		links = g_menu_model_iterate_item_links (model, n);
-
-		while (g_menu_link_iter_next (links))
-		{
-			link = g_menu_link_iter_get_value (links);
-			viewer_application_init_accels_for_attributes (self, link);
-			viewer_application_init_accels_for_links (self, link);
-			g_object_unref (link);
-		}
-
-		g_object_unref (links);
+		gtk_application_set_accels_for_action (self, entries->detailed_action_name, entries->accels);
+		entries++;
 	}
 }
 
@@ -200,5 +167,5 @@ viewer_application_startup (GApplication *self)
 {
 	G_APPLICATION_CLASS (viewer_application_parent_class)->startup (self);
 	g_action_map_add_action_entries (G_ACTION_MAP (self), ACTION_ENTRIES, G_N_ELEMENTS (ACTION_ENTRIES), self);
-	viewer_application_init_accels (VIEWER_APPLICATION (self));
+	viewer_application_init_accels (GTK_APPLICATION (self));
 }

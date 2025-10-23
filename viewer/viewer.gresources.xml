@@ -3,8 +3,8 @@
 	<gresource prefix="/com/github/mi19a009/PictureViewer">
 		<file preprocess="xml-stripblanks">viewerapplicationwindow.ui</file>
 		<file preprocess="xml-stripblanks">gtk/about.ui</file>
-		<file preprocess="xml-stripblanks">gtk/menus.ui</file>
 		<file preprocess="xml-stripblanks">gtk/help-overlay.ui</file>
+		<file preprocess="xml-stripblanks">gtk/menus.ui</file>
 		<file>icons/48x48/actions/viewer.png</file>
 	</gresource>
 </gresources>

@@ -2,24 +2,31 @@
 #include <gtk/gtk.h>
 #include <glib/gi18n.h>
 #include "viewer.h"
-#define ACTION_ABOUT      "show-about"
-#define ACTION_BACKGROUND "background"
-#define ACTION_FULLSCREEN "fullscreen"
-#define ACTION_OPEN       "open"
+#define ACTION_ABOUT          "show-about"
+#define ACTION_BACKGROUND     "background"
+#define ACTION_FULLSCREEN     "fullscreen"
+#define ACTION_OPEN           "open"
+#define ACTION_RESTORE_ZOOM   "restore-zoom"
+#define ACTION_ZOOM_IN        "zoom-in"
+#define ACTION_ZOOM_OUT       "zoom-out"
+#define FORMAT_TITLE          "%s - %s"
+#define FORMAT_ZOOM_TITLE     "%.0f%% %s - %s"
 #define PROPERTY_APPLICATION  "application"
 #define PROPERTY_SHOW_MENUBAR "show-menubar"
-#define SIGNAL_DESTROY      "destroy"
-#define SIGNAL_NOTIFY_STATE "notify::state"
 #define RESOURCE_ABOUT        "gtk/about.ui"
 #define RESOURCE_ABOUT_DIALOG "dialog"
 #define RESOURCE_TEMPLATE     "viewerapplicationwindow.ui"
-#define SETTINGS_FULLSCREEN "window-fullscreen"
-#define SETTINGS_HEIGHT     "window-height"
-#define SETTINGS_MAXIMIZED  "window-maximized"
-#define SETTINGS_WIDTH      "window-width"
-#define TITLE            _("Picture Viewer")
-#define TITLE_BACKGROUND _("Background Color")
-#define TITLE_OPEN       _("Open File")
+#define SETTINGS_FULLSCREEN   "window-fullscreen"
+#define SETTINGS_HEIGHT       "window-height"
+#define SETTINGS_MAXIMIZED    "window-maximized"
+#define SETTINGS_WIDTH        "window-width"
+#define SIGNAL_DESTROY        "destroy"
+#define SIGNAL_NOTIFY_STATE   "notify::state"
+#define TITLE                 _("Picture Viewer")
+#define TITLE_BACKGROUND      _("Background Color")
+#define TITLE_CCH             256
+#define TITLE_OPEN            _("Open File")
+#define ZOOM_INCREMENT        1.25F
 
 /* Viewer Application Window クラスのプロパティ */
 enum _ViewerApplicationWindowProperties
@@ -37,6 +44,7 @@ enum _ViewerApplicationWindowProperties
 struct _ViewerApplicationWindow
 {
 	GtkApplicationWindow parent_instance;
+	char                *name;
 	cairo_pattern_t     *pattern;
 	cairo_surface_t     *surface;
 	GFile               *file;
@@ -51,31 +59,36 @@ struct _ViewerApplicationWindow
 	unsigned char        maximized;
 };
 
-static void     viewer_application_window_activate_about       (GSimpleAction *action, GVariant *parameter, gpointer user_data);
-static void     viewer_application_window_activate_background  (GSimpleAction *action, GVariant *parameter, gpointer user_data);
-static void     viewer_application_window_activate_fullscreen  (GSimpleAction *action, GVariant *parameter, gpointer user_data);
-static void     viewer_application_window_activate_open        (GSimpleAction *action, GVariant *parameter, gpointer user_data);
-static void     viewer_application_window_apply_settings       (ViewerApplicationWindow *self);
-static void     viewer_application_window_class_init           (ViewerApplicationWindowClass *this_class);
-static void     viewer_application_window_class_init_object    (GObjectClass *this_class);
-static void     viewer_application_window_class_init_widget    (GtkWidgetClass *this_class);
-static void     viewer_application_window_construct            (GObject *self);
-static void     viewer_application_window_destroy              (ViewerApplicationWindow *self);
-static void     viewer_application_window_dispose              (GObject *self);
-static void     viewer_application_window_draw                 (GtkDrawingArea *area, cairo_t *cairo, int width, int height, gpointer user_data);
-static gboolean viewer_application_window_get_background_equal (ViewerApplicationWindow *self, float red, float green, float blue);
-static void     viewer_application_window_get_property         (GObject *self, guint property_id, GValue *value, GParamSpec *pspec);
-static void     viewer_application_window_init                 (ViewerApplicationWindow *self);
-static void     viewer_application_window_load_settings        (ViewerApplicationWindow *self);
-static void     viewer_application_window_realize              (GtkWidget *self);
-static void     viewer_application_window_resize               (GtkWidget *self, int width, int height, int baseline);
-static void     viewer_application_window_respond_background   (GObject *dialog, GAsyncResult *result, gpointer user_data);
-static void     viewer_application_window_respond_open         (GObject *dialog, GAsyncResult *result, gpointer user_data);
-static void     viewer_application_window_save_settings        (ViewerApplicationWindow *self);
-static void     viewer_application_window_set_property         (GObject *self, guint property_id, const GValue *value, GParamSpec *pspec);
-static void     viewer_application_window_unrealize            (GtkWidget *self);
-static void     viewer_application_window_update_size          (ViewerApplicationWindow *self);
-static void     viewer_application_window_update_surface       (GObject *object, GParamSpec *pspec, gpointer user_data);
+static void     viewer_application_window_activate_about        (GSimpleAction *action, GVariant *parameter, gpointer user_data);
+static void     viewer_application_window_activate_background   (GSimpleAction *action, GVariant *parameter, gpointer user_data);
+static void     viewer_application_window_activate_fullscreen   (GSimpleAction *action, GVariant *parameter, gpointer user_data);
+static void     viewer_application_window_activate_open         (GSimpleAction *action, GVariant *parameter, gpointer user_data);
+static void     viewer_application_window_activate_restore_zoom (GSimpleAction *action, GVariant *parameter, gpointer user_data);
+static void     viewer_application_window_activate_zoom_in      (GSimpleAction *action, GVariant *parameter, gpointer user_data);
+static void     viewer_application_window_activate_zoom_out     (GSimpleAction *action, GVariant *parameter, gpointer user_data);
+static void     viewer_application_window_apply_settings        (ViewerApplicationWindow *self);
+static void     viewer_application_window_class_init            (ViewerApplicationWindowClass *this_class);
+static void     viewer_application_window_class_init_object     (GObjectClass *this_class);
+static void     viewer_application_window_class_init_widget     (GtkWidgetClass *this_class);
+static void     viewer_application_window_construct             (GObject *self);
+static void     viewer_application_window_destroy               (ViewerApplicationWindow *self);
+static void     viewer_application_window_dispose               (GObject *self);
+static void     viewer_application_window_draw                  (GtkDrawingArea *area, cairo_t *cairo, int width, int height, gpointer user_data);
+static gboolean viewer_application_window_get_background_equal  (ViewerApplicationWindow *self, float red, float green, float blue);
+static void     viewer_application_window_get_property          (GObject *self, guint property_id, GValue *value, GParamSpec *pspec);
+static void     viewer_application_window_init                  (ViewerApplicationWindow *self);
+static void     viewer_application_window_load_settings         (ViewerApplicationWindow *self);
+static void     viewer_application_window_realize               (GtkWidget *self);
+static void     viewer_application_window_resize                (GtkWidget *self, int width, int height, int baseline);
+static void     viewer_application_window_respond_background    (GObject *dialog, GAsyncResult *result, gpointer user_data);
+static void     viewer_application_window_respond_open          (GObject *dialog, GAsyncResult *result, gpointer user_data);
+static void     viewer_application_window_save_settings         (ViewerApplicationWindow *self);
+static void     viewer_application_window_set_property          (GObject *self, guint property_id, const GValue *value, GParamSpec *pspec);
+static void     viewer_application_window_unrealize             (GtkWidget *self);
+static void     viewer_application_window_update_name           (ViewerApplicationWindow *self);
+static void     viewer_application_window_update_size           (ViewerApplicationWindow *self);
+static void     viewer_application_window_update_surface        (GObject *object, GParamSpec *pspec, gpointer user_data);
+static void     viewer_application_window_update_title          (ViewerApplicationWindow *self);
 
 /* Viewer Application Window クラス */
 G_DEFINE_TYPE (ViewerApplicationWindow, viewer_application_window, GTK_TYPE_APPLICATION_WINDOW);
@@ -126,10 +139,13 @@ G_DEFINE_TYPE (ViewerApplicationWindow, viewer_application_window, GTK_TYPE_APPL
 /* メニュー項目アクション */
 static const GActionEntry ACTION_ENTRIES [] =
 {
-	{ ACTION_ABOUT,      viewer_application_window_activate_about,      NULL, NULL, NULL },
-	{ ACTION_BACKGROUND, viewer_application_window_activate_background, NULL, NULL, NULL },
-	{ ACTION_FULLSCREEN, viewer_application_window_activate_fullscreen, NULL, NULL, NULL },
-	{ ACTION_OPEN,       viewer_application_window_activate_open,       NULL, NULL, NULL },
+	{ ACTION_ABOUT,        viewer_application_window_activate_about,        NULL, NULL, NULL },
+	{ ACTION_BACKGROUND,   viewer_application_window_activate_background,   NULL, NULL, NULL },
+	{ ACTION_FULLSCREEN,   viewer_application_window_activate_fullscreen,   NULL, NULL, NULL },
+	{ ACTION_OPEN,         viewer_application_window_activate_open,         NULL, NULL, NULL },
+	{ ACTION_RESTORE_ZOOM, viewer_application_window_activate_restore_zoom, NULL, NULL, NULL },
+	{ ACTION_ZOOM_IN,      viewer_application_window_activate_zoom_in,      NULL, NULL, NULL },
+	{ ACTION_ZOOM_OUT,     viewer_application_window_activate_zoom_out,     NULL, NULL, NULL },
 };
 
 /*******************************************************************************
@@ -202,6 +218,37 @@ viewer_application_window_activate_open (GSimpleAction *action, GVariant *parame
 	gtk_file_dialog_set_title    (dialog, TITLE_OPEN);
 	gtk_file_dialog_open         (dialog, GTK_WINDOW (user_data), NULL, viewer_application_window_respond_open, user_data);
 	g_object_unref               (dialog);
+}
+
+/*******************************************************************************
+既定の拡大率に戻します。
+*/
+static void
+viewer_application_window_activate_restore_zoom (GSimpleAction *action, GVariant *parameter, gpointer user_data)
+{
+	viewer_application_window_set_zoom (VIEWER_APPLICATION_WINDOW (user_data), ZOOM_PROPERTY_DEFAULT_VALUE);
+}
+
+/*******************************************************************************
+詳細表示します。
+*/
+static void
+viewer_application_window_activate_zoom_in (GSimpleAction *action, GVariant *parameter, gpointer user_data)
+{
+	ViewerApplicationWindow *self;
+	self = VIEWER_APPLICATION_WINDOW (user_data);
+	viewer_application_window_set_zoom (self, self->zoom * ZOOM_INCREMENT);
+}
+
+/*******************************************************************************
+広域表示します。
+*/
+static void
+viewer_application_window_activate_zoom_out (GSimpleAction *action, GVariant *parameter, gpointer user_data)
+{
+	ViewerApplicationWindow *self;
+	self = VIEWER_APPLICATION_WINDOW (user_data);
+	viewer_application_window_set_zoom (self, self->zoom * 1.0F / ZOOM_INCREMENT);
 }
 
 /*******************************************************************************
@@ -287,6 +334,7 @@ viewer_application_window_destroy (ViewerApplicationWindow *self)
 {
 	g_clear_pointer (&self->pattern, cairo_pattern_destroy);
 	g_clear_pointer (&self->surface, cairo_surface_destroy);
+	g_clear_pointer (&self->name, g_free);
 	g_clear_object (&self->file);
 }
 
@@ -309,6 +357,7 @@ static void
 viewer_application_window_draw (GtkDrawingArea *area, cairo_t *cairo, int width, int height, gpointer user_data)
 {
 	ViewerApplicationWindow *self;
+	double zoom;
 	self = VIEWER_APPLICATION_WINDOW (user_data);
 
 	if (!self->pattern)
@@ -326,7 +375,8 @@ viewer_application_window_draw (GtkDrawingArea *area, cairo_t *cairo, int width,
 	}
 	if (self->surface)
 	{
-		cairo_scale (cairo, self->zoom, self->zoom);
+		zoom = self->zoom;
+		cairo_scale (cairo, zoom, zoom);
 		cairo_set_source_surface (cairo, self->surface, 0, 0);
 		cairo_paint (cairo);
 	}
@@ -424,12 +474,12 @@ viewer_application_window_init (ViewerApplicationWindow *self)
 {
 	g_action_map_add_action_entries (G_ACTION_MAP (self), ACTION_ENTRIES, G_N_ELEMENTS (ACTION_ENTRIES), self);
 	gtk_widget_init_template        (GTK_WIDGET (self));
-	gtk_window_set_title            (GTK_WINDOW (self), TITLE);
 	gtk_drawing_area_set_draw_func  (GTK_DRAWING_AREA (self->area), viewer_application_window_draw, self, NULL);
 	self->background_blue  = BACKGROUND_BLUE_PROPERTY_DEFAULT_VALUE;
 	self->background_green = BACKGROUND_GREEN_PROPERTY_DEFAULT_VALUE;
 	self->background_red   = BACKGROUND_RED_PROPERTY_DEFAULT_VALUE;
 	self->zoom             = ZOOM_PROPERTY_DEFAULT_VALUE;
+	viewer_application_window_update_title (self);
 }
 
 /*******************************************************************************
@@ -565,6 +615,8 @@ viewer_application_window_set_file (ViewerApplicationWindow *self, GFile *file)
 
 		g_clear_pointer (&self->surface, cairo_surface_destroy);
 		gtk_widget_queue_draw (self->area);
+		viewer_application_window_update_name (self);
+		viewer_application_window_update_title (self);
 	}
 }
 
@@ -610,6 +662,7 @@ viewer_application_window_set_zoom (ViewerApplicationWindow *self, float zoom)
 	{
 		self->zoom = zoom;
 		gtk_widget_queue_draw (self->area);
+		viewer_application_window_update_title (self);
 	}
 }
 
@@ -621,6 +674,26 @@ viewer_application_window_unrealize (GtkWidget *self)
 {
 	g_signal_handlers_disconnect_by_func (gtk_native_get_surface (GTK_NATIVE (self)), viewer_application_window_update_surface, self);
 	GTK_WIDGET_CLASS (viewer_application_window_parent_class)->unrealize (self);
+}
+
+/*******************************************************************************
+開いたファイルの名前を更新します。
+*/
+static void
+viewer_application_window_update_name (ViewerApplicationWindow *self)
+{
+	if (self->name)
+	{
+		g_free (self->name);
+	}
+	if (self->file)
+	{
+		self->name = g_file_get_basename (self->file);
+	}
+	else
+	{
+		self->name = NULL;
+	}
 }
 
 /*******************************************************************************
@@ -649,4 +722,34 @@ viewer_application_window_update_surface (GObject *object, GParamSpec *pspec, gp
 	state = gdk_toplevel_get_state (GDK_TOPLEVEL (surface));
 	self->maximized = (state & GDK_TOPLEVEL_STATE_MAXIMIZED) != 0;
 	self->fullscreen = (state & GDK_TOPLEVEL_STATE_FULLSCREEN) != 0;
+}
+
+/*******************************************************************************
+ウィンドウ タイトルを更新します。
+*/
+static void
+viewer_application_window_update_title (ViewerApplicationWindow *self)
+{
+	const char *title;
+	char buffer [TITLE_CCH];
+
+	if (self->name)
+	{
+		title = buffer;
+
+		if (self->zoom == ZOOM_PROPERTY_DEFAULT_VALUE)
+		{
+			g_snprintf (buffer, TITLE_CCH, FORMAT_TITLE, self->name, TITLE);
+		}
+		else
+		{
+			g_snprintf (buffer, TITLE_CCH, FORMAT_ZOOM_TITLE, self->zoom * 100.0F, self->name, TITLE);
+		}
+	}
+	else
+	{
+		title = TITLE;
+	}
+
+	gtk_window_set_title (GTK_WINDOW (self), title);
 }

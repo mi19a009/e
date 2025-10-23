@@ -39,24 +39,48 @@
 				<item>
 					<attribute name="label" translatable="true">_New Window</attribute>
 					<attribute name="action">app.new</attribute>
-					<attribute name="accel">&lt;Ctrl&gt;N</attribute>
+					<attribute name="accel">&lt;Ctrl&gt;n</attribute>
 				</item>
 				<item>
 					<attribute name="label" translatable="true">_Open...</attribute>
 					<attribute name="action">win.open</attribute>
-					<attribute name="accel">&lt;Ctrl&gt;O</attribute>
+					<attribute name="accel">&lt;Ctrl&gt;o</attribute>
 				</item>
 			</section>
 			<section>
 				<item>
 					<attribute name="label" translatable="true">_Quit</attribute>
 					<attribute name="action">window.close</attribute>
-					<attribute name="accel">&lt;Ctrl&gt;Q</attribute>
+					<attribute name="accel">&lt;Ctrl&gt;q</attribute>
 				</item>
 			</section>
 		</submenu>
 		<submenu>
 			<attribute name="label" translatable="true">_View</attribute>
+			<section>
+				<submenu>
+					<attribute name="label" translatable="true">_Zoom</attribute>
+					<section>
+						<item>
+							<attribute name="label" translatable="true">Zoom _In</attribute>
+							<attribute name="action">win.zoom-in</attribute>
+							<attribute name="accel">&lt;Ctrl&gt;plus</attribute>
+						</item>
+						<item>
+							<attribute name="label" translatable="true">Zoom _Out</attribute>
+							<attribute name="action">win.zoom-out</attribute>
+							<attribute name="accel">&lt;Ctrl&gt;minus</attribute>
+						</item>
+					</section>
+					<section>
+						<item>
+							<attribute name="label" translatable="true">_Restore Zoom to Default</attribute>
+							<attribute name="action">win.restore-zoom</attribute>
+							<attribute name="accel">&lt;Ctrl&gt;0</attribute>
+						</item>
+					</section>
+				</submenu>
+			</section>
 			<section>
 				<item>
 					<attribute name="label" translatable="true">_Fullscreen</attribute>
