@@ -81,7 +81,7 @@ viewer_create_pixbuf_from_file (GFile *file, GError **error)
 画像ファイルを開きます。
 */
 cairo_surface_t *
-viewer_create_surface_from_file (cairo_t *cairo, GFile *file, GError **error)
+viewer_create_surface_from_file (cairo_t *cairo, GFile *file, int *surface_width, int *surface_height, GError **error)
 {
 	cairo_surface_t *surface;
 	GdkPixbuf *pixbuf;
@@ -106,6 +106,8 @@ viewer_create_surface_from_file (cairo_t *cairo, GFile *file, GError **error)
 		surface = NULL;
 	}
 
+	*surface_width = width;
+	*surface_height = height;
 	return surface;
 }
 

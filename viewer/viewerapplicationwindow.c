@@ -51,12 +51,18 @@ struct _ViewerApplicationWindow
 	cairo_pattern_t     *pattern;
 	cairo_surface_t     *surface;
 	GFile               *file;
+	GtkAdjustment       *hadjustment;
+	GtkAdjustment       *vadjustment;
 	GtkWidget           *area;
 	float                background_red;
 	float                background_green;
 	float                background_blue;
 	float                zoom;
 	float                zoom_origin;
+	int                  area_width;
+	int                  area_height;
+	int                  surface_width;
+	int                  surface_height;
 	int                  width;
 	int                  height;
 	unsigned char        fullscreen;
@@ -72,7 +78,8 @@ static void     viewer_application_window_activate_zoom_in      (GSimpleAction *
 static void     viewer_application_window_activate_zoom_out     (GSimpleAction *action, GVariant *parameter, gpointer user_data);
 static void     viewer_application_window_apply_settings        (ViewerApplicationWindow *self);
 static void     viewer_application_window_begin_zoom            (GtkGesture *gesture, GdkEventSequence *sequence, gpointer user_data);
-static void     viewer_application_window_change_zoom           (GtkGestureZoom *gesture, gdouble scale, gpointer user_data);
+static void     viewer_application_window_change_adjustment     (GtkAdjustment *adjustment, gpointer user_data);
+static void     viewer_application_window_change_zoom           (GtkGestureZoom *gesture, gdouble delta, gpointer user_data);
 static void     viewer_application_window_class_init            (ViewerApplicationWindowClass *this_class);
 static void     viewer_application_window_class_init_object     (GObjectClass *this_class);
 static void     viewer_application_window_class_init_widget     (GtkWidgetClass *this_class);
@@ -88,12 +95,14 @@ static void     viewer_application_window_init_gestures         (ViewerApplicati
 static void     viewer_application_window_load_settings         (ViewerApplicationWindow *self);
 static void     viewer_application_window_realize               (GtkWidget *self);
 static void     viewer_application_window_resize                (GtkWidget *self, int width, int height, int baseline);
+static void     viewer_application_window_resize_area           (GtkDrawingArea *area, int width, int height, gpointer user_data);
 static void     viewer_application_window_respond_background    (GObject *dialog, GAsyncResult *result, gpointer user_data);
 static void     viewer_application_window_respond_open          (GObject *dialog, GAsyncResult *result, gpointer user_data);
 static void     viewer_application_window_save_settings         (ViewerApplicationWindow *self);
 static void     viewer_application_window_set_property          (GObject *self, guint property_id, const GValue *value, GParamSpec *pspec);
 static void     viewer_application_window_unrealize             (GtkWidget *self);
 static void     viewer_application_window_update_name           (ViewerApplicationWindow *self);
+static void     viewer_application_window_update_range          (ViewerApplicationWindow *self);
 static void     viewer_application_window_update_size           (ViewerApplicationWindow *self);
 static void     viewer_application_window_update_surface        (GObject *object, GParamSpec *pspec, gpointer user_data);
 static void     viewer_application_window_update_title          (ViewerApplicationWindow *self);
@@ -291,14 +300,25 @@ viewer_application_window_begin_zoom (GtkGesture *gesture, GdkEventSequence *seq
 }
 
 /*******************************************************************************
-拡大率を変更します。
+スクロール位置を変更します。
 */
 static void
-viewer_application_window_change_zoom (GtkGestureZoom *gesture, gdouble scale, gpointer user_data)
+viewer_application_window_change_adjustment (GtkAdjustment *adjustment, gpointer user_data)
 {
 	ViewerApplicationWindow *self;
 	self = VIEWER_APPLICATION_WINDOW (user_data);
-	viewer_application_window_set_zoom (self, self->zoom_origin * scale);
+	gtk_widget_queue_draw (self->area);
+}
+
+/*******************************************************************************
+拡大率を変更します。
+*/
+static void
+viewer_application_window_change_zoom (GtkGestureZoom *gesture, gdouble delta, gpointer user_data)
+{
+	ViewerApplicationWindow *self;
+	self = VIEWER_APPLICATION_WINDOW (user_data);
+	viewer_application_window_set_zoom (self, self->zoom_origin * delta);
 }
 
 /*******************************************************************************
@@ -342,7 +362,11 @@ viewer_application_window_class_init_widget (GtkWidgetClass *this_class)
 	this_class->unrealize     = viewer_application_window_unrealize;
 	viewer_get_resource_path (path, VIEWER_RESOURCE_PATH_CCH, RESOURCE_TEMPLATE);
 	gtk_widget_class_set_template_from_resource (GTK_WIDGET_CLASS (this_class), path);
+	gtk_widget_class_bind_template_child (this_class, ViewerApplicationWindow, hadjustment);
+	gtk_widget_class_bind_template_child (this_class, ViewerApplicationWindow, vadjustment);
 	gtk_widget_class_bind_template_child (this_class, ViewerApplicationWindow, area);
+	gtk_widget_class_bind_template_callback (this_class, viewer_application_window_change_adjustment);
+	gtk_widget_class_bind_template_callback (this_class, viewer_application_window_resize_area);
 }
 
 /*******************************************************************************
@@ -396,7 +420,8 @@ viewer_application_window_draw (GtkDrawingArea *area, cairo_t *cairo, int width,
 	}
 	if (!self->surface && self->file)
 	{
-		self->surface = viewer_create_surface_from_file (cairo, self->file, NULL);
+		self->surface = viewer_create_surface_from_file (cairo, self->file, &self->surface_width, &self->surface_height, NULL);
+		g_idle_add_once ((GSourceOnceFunc) viewer_application_window_update_range, self);
 	}
 	if (self->pattern)
 	{
@@ -406,6 +431,7 @@ viewer_application_window_draw (GtkDrawingArea *area, cairo_t *cairo, int width,
 	if (self->surface)
 	{
 		zoom = self->zoom;
+		cairo_translate (cairo, -gtk_adjustment_get_value (self->hadjustment), -gtk_adjustment_get_value (self->vadjustment));
 		cairo_scale (cairo, zoom, zoom);
 		cairo_set_source_surface (cairo, self->surface, 0, 0);
 		cairo_paint (cairo);
@@ -586,6 +612,19 @@ viewer_application_window_resize (GtkWidget *self, int width, int height, int ba
 }
 
 /*******************************************************************************
+描画領域の大きさを変更します。
+*/
+static void
+viewer_application_window_resize_area (GtkDrawingArea *area, int width, int height, gpointer user_data)
+{
+	ViewerApplicationWindow *self;
+	self = VIEWER_APPLICATION_WINDOW (user_data);
+	self->area_width = width;
+	self->area_height = height;
+	viewer_application_window_update_range (VIEWER_APPLICATION_WINDOW (self));
+}
+
+/*******************************************************************************
 背景色を選択します。
 */
 static void
@@ -718,6 +757,7 @@ viewer_application_window_set_zoom (ViewerApplicationWindow *self, float zoom)
 	{
 		self->zoom = zoom;
 		gtk_widget_queue_draw (self->area);
+		viewer_application_window_update_range (VIEWER_APPLICATION_WINDOW (self));
 		viewer_application_window_update_title (self);
 	}
 }
@@ -750,6 +790,18 @@ viewer_application_window_update_name (ViewerApplicationWindow *self)
 	{
 		self->name = NULL;
 	}
+}
+
+/*******************************************************************************
+スクロール範囲を更新します。
+*/
+static void
+viewer_application_window_update_range (ViewerApplicationWindow *self)
+{
+	gtk_adjustment_set_page_size (self->hadjustment, self->area_width * self->zoom);
+	gtk_adjustment_set_upper     (self->hadjustment, self->surface_width);
+	gtk_adjustment_set_page_size (self->vadjustment, self->area_height * self->zoom);
+	gtk_adjustment_set_upper     (self->vadjustment, self->surface_height);
 }
 
 /*******************************************************************************

@@ -15,6 +15,7 @@
 									<property name="column">0</property>
 									<property name="row">0</property>
 								</layout>
+								<signal name="resize" handler="viewer_application_window_resize_area" />
 							</object>
 						</child>
 						<child>
@@ -22,7 +23,9 @@
 								<property name="orientation">vertical</property>
 								<property name="vexpand">true</property>
 								<property name="adjustment">
-									<object class="GtkAdjustment" id="vadjustment" />
+									<object class="GtkAdjustment" id="vadjustment">
+										<signal name="value-changed" handler="viewer_application_window_change_adjustment" />
+									</object>
 								</property>
 								<layout>
 									<property name="column">1</property>
@@ -35,7 +38,9 @@
 								<property name="orientation">horizontal</property>
 								<property name="hexpand">true</property>
 								<property name="adjustment">
-									<object class="GtkAdjustment" id="hadjustment" />
+									<object class="GtkAdjustment" id="hadjustment">
+										<signal name="value-changed" handler="viewer_application_window_change_adjustment" />
+									</object>
 								</property>
 								<layout>
 									<property name="column">0</property>
