@@ -22,9 +22,13 @@
 #define SETTINGS_WIDTH        "window-width"
 #define SIGNAL_BEGIN          "begin"
 #define SIGNAL_DESTROY        "destroy"
+#define SIGNAL_DRAG_BEGIN     "drag-begin"
+#define SIGNAL_DRAG_END       "drag-end"
+#define SIGNAL_DRAG_UPDATE    "drag-update"
 #define SIGNAL_END            "end"
 #define SIGNAL_NOTIFY_STATE   "notify::state"
 #define SIGNAL_SCALE_CHANGED  "scale-changed"
+#define SIGNAL_SCROLL         "scroll"
 #define TITLE                 _("Picture Viewer")
 #define TITLE_BACKGROUND      _("Background Color")
 #define TITLE_CCH             256
@@ -57,6 +61,8 @@ struct _ViewerApplicationWindow
 	float                background_red;
 	float                background_green;
 	float                background_blue;
+	float                scroll_x;
+	float                scroll_y;
 	float                zoom;
 	float                zoom_origin;
 	int                  area_width;
@@ -77,6 +83,7 @@ static void     viewer_application_window_activate_restore_zoom (GSimpleAction *
 static void     viewer_application_window_activate_zoom_in      (GSimpleAction *action, GVariant *parameter, gpointer user_data);
 static void     viewer_application_window_activate_zoom_out     (GSimpleAction *action, GVariant *parameter, gpointer user_data);
 static void     viewer_application_window_apply_settings        (ViewerApplicationWindow *self);
+static void     viewer_application_window_begin_drag            (GtkGestureDrag *gesture, gdouble x, gdouble y, gpointer user_data);
 static void     viewer_application_window_begin_zoom            (GtkGesture *gesture, GdkEventSequence *sequence, gpointer user_data);
 static void     viewer_application_window_change_adjustment     (GtkAdjustment *adjustment, gpointer user_data);
 static void     viewer_application_window_change_zoom           (GtkGestureZoom *gesture, gdouble delta, gpointer user_data);
@@ -86,11 +93,14 @@ static void     viewer_application_window_class_init_widget     (GtkWidgetClass 
 static void     viewer_application_window_construct             (GObject *self);
 static void     viewer_application_window_destroy               (ViewerApplicationWindow *self);
 static void     viewer_application_window_dispose               (GObject *self);
+static void     viewer_application_window_drag                  (GtkGestureDrag *gesture, gdouble x, gdouble y, gpointer user_data);
 static void     viewer_application_window_draw                  (GtkDrawingArea *area, cairo_t *cairo, int width, int height, gpointer user_data);
+static void     viewer_application_window_end_drag              (GtkGestureDrag *gesture, gdouble x, gdouble y, gpointer user_data);
 static void     viewer_application_window_end_zoom              (GtkGesture *gesture, GdkEventSequence *sequence, gpointer user_data);
 static gboolean viewer_application_window_get_background_equal  (ViewerApplicationWindow *self, float red, float green, float blue);
 static void     viewer_application_window_get_property          (GObject *self, guint property_id, GValue *value, GParamSpec *pspec);
 static void     viewer_application_window_init                  (ViewerApplicationWindow *self);
+static void     viewer_application_window_init_controllers      (ViewerApplicationWindow *self);
 static void     viewer_application_window_init_gestures         (ViewerApplicationWindow *self);
 static void     viewer_application_window_load_settings         (ViewerApplicationWindow *self);
 static void     viewer_application_window_realize               (GtkWidget *self);
@@ -99,6 +109,7 @@ static void     viewer_application_window_resize_area           (GtkDrawingArea 
 static void     viewer_application_window_respond_background    (GObject *dialog, GAsyncResult *result, gpointer user_data);
 static void     viewer_application_window_respond_open          (GObject *dialog, GAsyncResult *result, gpointer user_data);
 static void     viewer_application_window_save_settings         (ViewerApplicationWindow *self);
+static void     viewer_application_window_scroll                (GtkEventControllerScroll *controller, gdouble dx, gdouble dy, gpointer user_data);
 static void     viewer_application_window_set_property          (GObject *self, guint property_id, const GValue *value, GParamSpec *pspec);
 static void     viewer_application_window_unrealize             (GtkWidget *self);
 static void     viewer_application_window_update_name           (ViewerApplicationWindow *self);
@@ -289,6 +300,18 @@ viewer_application_window_apply_settings (ViewerApplicationWindow *self)
 }
 
 /*******************************************************************************
+画像スクロールを開始します。
+*/
+static void
+viewer_application_window_begin_drag (GtkGestureDrag *gesture, gdouble x, gdouble y, gpointer user_data)
+{
+	ViewerApplicationWindow *self;
+	self = VIEWER_APPLICATION_WINDOW (user_data);
+	self->scroll_x = gtk_adjustment_get_value (self->hadjustment);
+	self->scroll_y = gtk_adjustment_get_value (self->vadjustment);
+}
+
+/*******************************************************************************
 拡大を開始します。
 */
 static void
@@ -405,6 +428,18 @@ viewer_application_window_dispose (GObject *self)
 }
 
 /*******************************************************************************
+画像をスクロールします。
+*/
+static void
+viewer_application_window_drag (GtkGestureDrag *gesture, gdouble x, gdouble y, gpointer user_data)
+{
+	ViewerApplicationWindow *self;
+	self = VIEWER_APPLICATION_WINDOW (user_data);
+	gtk_adjustment_set_value (self->hadjustment, self->scroll_x - x);
+	gtk_adjustment_set_value (self->vadjustment, self->scroll_y - y);
+}
+
+/*******************************************************************************
 ウィンドウ領域を描画します。
 */
 static void
@@ -436,6 +471,18 @@ viewer_application_window_draw (GtkDrawingArea *area, cairo_t *cairo, int width,
 		cairo_set_source_surface (cairo, self->surface, 0, 0);
 		cairo_paint (cairo);
 	}
+}
+
+/*******************************************************************************
+画像スクロールを終了します。
+*/
+static void
+viewer_application_window_end_drag (GtkGestureDrag *gesture, gdouble x, gdouble y, gpointer user_data)
+{
+	ViewerApplicationWindow *self;
+	self = VIEWER_APPLICATION_WINDOW (user_data);
+	self->scroll_x = 0;
+	self->scroll_y = 0;
 }
 
 /*******************************************************************************
@@ -546,8 +593,21 @@ viewer_application_window_init (ViewerApplicationWindow *self)
 	self->background_green = BACKGROUND_GREEN_PROPERTY_DEFAULT_VALUE;
 	self->background_red   = BACKGROUND_RED_PROPERTY_DEFAULT_VALUE;
 	self->zoom             = ZOOM_PROPERTY_DEFAULT_VALUE;
+	viewer_application_window_init_controllers (self);
 	viewer_application_window_init_gestures (self);
 	viewer_application_window_update_title (self);
+}
+
+/*******************************************************************************
+イベント コントローラーを追加します。
+*/
+static void
+viewer_application_window_init_controllers (ViewerApplicationWindow *self)
+{
+	GtkEventController *controller;
+	controller = gtk_event_controller_scroll_new (GTK_EVENT_CONTROLLER_SCROLL_BOTH_AXES);
+	g_signal_connect (controller, SIGNAL_SCROLL, G_CALLBACK (viewer_application_window_scroll), self);
+	gtk_widget_add_controller (self->area, controller);
 }
 
 /*******************************************************************************
@@ -557,6 +617,11 @@ static void
 viewer_application_window_init_gestures (ViewerApplicationWindow *self)
 {
 	GtkGesture *gesture;
+	gesture = gtk_gesture_drag_new ();
+	g_signal_connect (gesture, SIGNAL_DRAG_BEGIN,  G_CALLBACK (viewer_application_window_begin_drag), self);
+	g_signal_connect (gesture, SIGNAL_DRAG_END,    G_CALLBACK (viewer_application_window_end_drag),   self);
+	g_signal_connect (gesture, SIGNAL_DRAG_UPDATE, G_CALLBACK (viewer_application_window_drag),       self);
+	gtk_widget_add_controller (self->area, GTK_EVENT_CONTROLLER (gesture));
 	gesture = gtk_gesture_zoom_new ();
 	g_signal_connect (gesture, SIGNAL_BEGIN,         G_CALLBACK (viewer_application_window_begin_zoom),  self);
 	g_signal_connect (gesture, SIGNAL_END,           G_CALLBACK (viewer_application_window_end_zoom),    self);
@@ -669,6 +734,18 @@ viewer_application_window_save_settings (ViewerApplicationWindow *self)
 	g_settings_set_boolean (settings, SETTINGS_FULLSCREEN, self->fullscreen);
 	g_settings_set_boolean (settings, SETTINGS_MAXIMIZED, self->maximized);
 	g_object_unref (settings);
+}
+
+/*******************************************************************************
+画像をスクロールします。
+*/
+static void
+viewer_application_window_scroll (GtkEventControllerScroll *controller, gdouble dx, gdouble dy, gpointer user_data)
+{
+	ViewerApplicationWindow *self;
+	self = VIEWER_APPLICATION_WINDOW (user_data);
+	gtk_adjustment_set_value (self->hadjustment, dx + gtk_adjustment_get_value (self->hadjustment));
+	gtk_adjustment_set_value (self->vadjustment, dy + gtk_adjustment_get_value (self->vadjustment));
 }
 
 /*******************************************************************************
@@ -798,10 +875,12 @@ viewer_application_window_update_name (ViewerApplicationWindow *self)
 static void
 viewer_application_window_update_range (ViewerApplicationWindow *self)
 {
-	gtk_adjustment_set_page_size (self->hadjustment, self->area_width * self->zoom);
-	gtk_adjustment_set_upper     (self->hadjustment, self->surface_width);
-	gtk_adjustment_set_page_size (self->vadjustment, self->area_height * self->zoom);
-	gtk_adjustment_set_upper     (self->vadjustment, self->surface_height);
+	gtk_adjustment_set_upper     (self->hadjustment, self->zoom * self->surface_width);
+	gtk_adjustment_set_upper     (self->vadjustment, self->zoom * self->surface_height);
+	gtk_adjustment_set_page_size (self->hadjustment, self->area_width);
+	gtk_adjustment_set_page_size (self->vadjustment, self->area_height);
+	gtk_adjustment_set_value     (self->hadjustment, gtk_adjustment_get_value (self->hadjustment));
+	gtk_adjustment_set_value     (self->vadjustment, gtk_adjustment_get_value (self->vadjustment));
 }
 
 /*******************************************************************************
