@@ -1,0 +1,13 @@
+<?xml version="1.0" encoding="UTF-8"?>
+<interface>
+	<object class="GtkAboutDialog" id="dialog">
+		<property name="authors">Taichi Murakami</property>
+		<property name="copyright">Copyright © 2025 Taichi Murakami.</property>
+		<property name="destroy-with-parent">true</property>
+		<property name="license-type">GTK_LICENSE_APACHE_2_0</property>
+		<property name="logo-icon-name">drawing</property>
+		<property name="modal">true</property>
+		<property name="program-name" translatable="true">Draw</property>
+		<property name="website">https://github.com/mi19a009/e/</property>
+	</object>
+</interface>

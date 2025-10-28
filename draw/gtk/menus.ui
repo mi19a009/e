@@ -1,0 +1,40 @@
+<?xml version="1.0" encoding="UTF-8"?>
+<interface>
+	<menu id="menubar">
+		<submenu>
+			<attribute name="label" translatable="true">_File</attribute>
+			<section>
+				<item>
+					<attribute name="label" translatable="true">_New Window</attribute>
+					<attribute name="action">app.new</attribute>
+					<attribute name="accel">&lt;Ctrl&gt;n</attribute>
+				</item>
+				<item>
+					<attribute name="label" translatable="true">_Open...</attribute>
+					<attribute name="action">win.open</attribute>
+					<attribute name="accel">&lt;Ctrl&gt;o</attribute>
+				</item>
+			</section>
+			<section>
+				<item>
+					<attribute name="label" translatable="true">_Quit</attribute>
+					<attribute name="action">window.close</attribute>
+					<attribute name="accel">&lt;Ctrl&gt;q</attribute>
+				</item>
+			</section>
+		</submenu>
+		<submenu>
+			<attribute name="label" translatable="true">_Help</attribute>
+			<section>
+				<item>
+					<attribute name="label" translatable="true">_Shortcuts</attribute>
+					<attribute name="action">win.show-help-overlay</attribute>
+				</item>
+				<item>
+					<attribute name="label" translatable="true">_About</attribute>
+					<attribute name="action">win.show-about</attribute>
+				</item>
+			</section>
+		</submenu>
+	</menu>
+</interface>
