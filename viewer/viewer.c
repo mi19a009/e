@@ -1,15 +1,39 @@
 /* Copyright (C) 2025 Taichi Murakami. */
 #include <gtk/gtk.h>
+#include <glib/gi18n.h>
+#include <locale.h>
 #include "viewer.h"
+#define APPLICATION_ID         "com.github.mi19a009.PictureViewer"
+#define APPLICATION_FLAGS      G_APPLICATION_HANDLES_OPEN
+#define LOCALE                 ""
 #define PIXBUF_BITS_PER_SAMPLE 8
-#define PIXBUF_OVERALL_ALPHA 255
-#define PIXBUF_SCALE_X 1.0
-#define PIXBUF_SCALE_Y 1.0
+#define PIXBUF_OVERALL_ALPHA   255
+#define PIXBUF_SCALE_X         1.0
+#define PIXBUF_SCALE_Y         1.0
+#define RESOURCE_FORMAT        "/com/github/mi19a009/PictureViewer/%s"
 
 static void             viewer_composite               (GdkPixbuf **pixbuf, int width, int height);
 static void             viewer_copy_pixels             (const guchar *source, guchar *destination, int width, int height, int stride);
 static GdkPixbuf       *viewer_create_pixbuf_from_file (GFile *file, GError **error);
 static cairo_surface_t *viewer_create_surface_for_data (cairo_t *cairo, guchar *data, int width, int height, int stride);
+
+/*******************************************************************************
+アプリケーションのメイン エントリ ポイントです。
+*/
+int
+main (int argc, char *argv [])
+{
+	GApplication *application;
+	int exitcode;
+	setlocale (LC_ALL, LOCALE);
+	bindtextdomain (GETTEXT_PACKAGE, GETTEXT_PATH);
+	bind_textdomain_codeset (GETTEXT_PACKAGE, GETTEXT_CODESET);
+	textdomain (GETTEXT_PACKAGE);
+	application = viewer_application_new (APPLICATION_ID, APPLICATION_FLAGS);
+	exitcode = g_application_run (application, argc, argv);
+	g_object_unref (application);
+	return exitcode;
+}
 
 /*******************************************************************************
 指定した画像の透過を有効にします。
@@ -146,4 +170,22 @@ viewer_create_surface_for_data (cairo_t *cairo, guchar *data, int width, int hei
 	}
 
 	return surface;
+}
+
+/*******************************************************************************
+リソースへのパスを取得します。
+*/
+int
+viewer_get_resource_path (char *buffer, size_t maxlen, const char *name)
+{
+	return g_snprintf (buffer, maxlen, RESOURCE_FORMAT, name);
+}
+
+/*******************************************************************************
+アプリケーションの環境設定を取得します。
+*/
+GSettings *
+viewer_get_settings (void)
+{
+	return g_settings_new (APPLICATION_ID);
 }

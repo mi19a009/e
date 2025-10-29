@@ -16,6 +16,9 @@ GResource       *viewer_get_resource             (void);
 int              viewer_get_resource_path        (char *buffer, size_t maxlen, const char *name);
 GSettings       *viewer_get_settings             (void);
 
+/* Viewer Application */
+GApplication *viewer_application_new (const char *application_id, GApplicationFlags flags);
+
 /* Viewer Application Window */
 void       viewer_application_window_get_background (ViewerApplicationWindow *self, float *red, float *green, float *blue);
 GFile     *viewer_application_window_get_file       (ViewerApplicationWindow *self);

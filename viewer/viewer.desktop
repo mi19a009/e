@@ -1,6 +1,6 @@
 [Desktop Entry]
-Name=Picture Viewer
-Exec=com.github.mi19a009.PictureViewer
-Icon=com.github.mi19a009.PictureViewer
 Type=Application
 StartupNotify=true
+Name=Picture Viewer
+Exec=
+Icon=

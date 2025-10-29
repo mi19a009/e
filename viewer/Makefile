@@ -1,54 +1,32 @@
 # Make Viewer
-CFLAGS  := $(shell pkg-config gtk4 --cflags) -Wall
-LIBS    := $(shell pkg-config gtk4 --libs)
-NAME    := com.github.mi19a009.PictureViewer
-BIN     := $(HOME)/.local/bin
-ENTRIES := $(HOME)/.local/share/applications
-ICONS   := $(HOME)/.local/share/icons/hicolor/48x48/apps
-SCHEMAS := $(HOME)/.local/share/glib-2.0/schemas
-OUT     := build/viewer
-TARGET  := build
-GTK = \
-	$(TARGET)/main.o \
-	$(TARGET)/gresources.o
-VIEWER = \
-	$(TARGET)/viewer.o \
-	$(TARGET)/viewerapplication.o \
-	$(TARGET)/viewerapplicationwindow.o
-ASSETS = \
+NAME     := com.github.mi19a009.PictureViewer
+ENTRY    := $(ENTRIES)/$(NAME).desktop
+EXEC     := $(BIN)/viewer
+ICON     := $(PWD)/icons/48x48/actions/viewer.png
+OBJ      := $(TARGET)/viewer.gresources.o
+SCHEMA   := $(SCHEMAS)/$(NAME).gschema.xml
+ASSETS   := \
 	$(wildcard *.ui) \
 	$(wildcard gtk/*.ui) \
 	$(wildcard icons/48x48/actions/*.png)
-.PHONY: build debug release
-all: $(OUT) schemas
-schemas: gschemas.compiled
+VIEWER   := \
+	$(TARGET)/viewer.o \
+	$(TARGET)/viewerapplication.o \
+	$(TARGET)/viewerapplicationwindow.o
+override CFLAGS += -DGETTEXT_PATH=\"$(LOCALE)\"
+.PHONY: all clean install uninst
+all: $(EXEC) $(SCHEMA)
+install: $(EXEC) $(SCHEMA) $(ENTRY)
 clean:
-	rm -rf build debug release $(wildcard gresources.*) $(wildcard gschemas.*)
-install: \
-	$(BIN)/$(NAME) \
-	$(ENTRIES)/$(NAME).desktop \
-	$(ICONS)/$(NAME).png \
-	$(SCHEMAS)/$(NAME).gschema.xml \
-	$(SCHEMAS)/gschemas.compiled
+	$(CLEAN) $(SCHEMA)
 uninst:
-	$(RM) $(BIN)/$(NAME)
-	$(RM) $(ENTRIES)/$(NAME).desktop
-	$(RM) $(ICONS)/$(NAME).png
-	$(RM) $(SCHEMAS)/$(NAME).gschema.xml
-	glib-compile-schemas $(SCHEMAS)
-# Targets
-debug:
-	@$(MAKE) OUT=$@/viewer TARGET=debug "CFLAGS = $(CFLAGS) -g -DG_ENABLE_DEBUG"
-release:
-	@$(MAKE) OUT=$@/viewer TARGET=release "CFLAGS = $(CFLAGS) -O2 -DNDEBUG -DG_DISABLE_ASSERT -DG_DISABLE_CAST_CHECKS -DGETTEXT_PATH=\\\"$(HOME)/.local/share/locale\\\""
+	$(RM) $(SCHEMA) $(ENTRY)
 # Sources
-gresources.c: viewer.gresources.xml $(ASSETS)
+viewer.gresources.c: viewer.gresources.xml $(ASSETS)
 	@echo $@
 	@glib-compile-resources $< --target $@ --generate-source
-gresources.h: viewer.gresources.xml
-	@echo $@
-	@glib-compile-resources $< --target $@ --generate-header
-$(GTK): $(TARGET)/%.o: %.c
+# Objects
+$(OBJ): $(TARGET)/%.o: %.c
 	@echo $@
 	@mkdir -p $(TARGET)
 	@$(CC) $(CFLAGS) -c -o $@ $<
@@ -56,36 +34,21 @@ $(VIEWER): $(TARGET)/%.o: %.c viewer.h
 	@echo $@
 	@mkdir -p $(TARGET)
 	@$(CC) $(CFLAGS) -c -o $@ $<
-$(OUT): $(GTK) $(VIEWER)
-	@echo $@
-	@$(CC) $(CFLAGS) -o $@ $(GTK) $(VIEWER) $(LIBS)
-# Binaries
-$(BIN)/$(NAME): release
+$(EXEC): $(OBJ) $(VIEWER)
 	@echo $@
 	@mkdir -p $(BIN)
-	@cp $</viewer $@
+	@$(CC) $(CFLAGS) -o $@ $(OBJ) $(VIEWER) $(LIBS)
 # Desktop Entries
-$(ENTRIES)/$(NAME).desktop: viewer.desktop
+$(ENTRY): viewer.desktop $(ICON)
 	@echo $@
 	@mkdir -p $(ENTRIES)
-	@cp $< $@
-# Icons
-$(ICONS)/$(NAME).png: icons/48x48/actions/viewer.png
-	@echo $@
-	@mkdir -p $(ICONS)
-	@cp $< $@
+	@sed -e "s#Exec=#Exec=$(EXEC)#" -e "s#Icon=#Icon=$(ICON)#" $< > $@
 # Schemas
-gschemas.valid: viewer.gschema.xml
+viewer.gschema.valid: viewer.gschema.xml
 	@echo $@
 	@glib-compile-schemas --strict --dry-run --schema-file=$<
 	@touch $@
-gschemas.compiled: gschemas.valid
-	@echo $@
-	@glib-compile-schemas .
-$(SCHEMAS)/$(NAME).gschema.xml: viewer.gschema.xml gschemas.valid
+$(SCHEMA): viewer.gschema.xml viewer.gschema.valid
 	@echo $@
 	@mkdir -p $(SCHEMAS)
 	@cp $< $@
-$(SCHEMAS)/gschemas.compiled:
-	@echo $@
-	@glib-compile-schemas $(SCHEMAS)

@@ -16,6 +16,8 @@ gresources.*
 gschemas.*
 *.aps
 *.compiled
+*.gresources.c
+*.gresources.h
 *.suo
 *.user
 *.valid
