@@ -11,14 +11,16 @@ SCHEMAS := $(HOME)/.local/share/glib-2.0/schemas
 TARGET  := build
 export BIN CFLAGS CLEAN ENTRIES LIBS LOCALE SCHEMAS TARGET
 .PHONY: all clean debug draw install release schemas text uninst viewer
-all: text viewer schemas
+all: text draw viewer schemas
 clean:
 	$(CLEAN)
+	@cd draw   && $(MAKE) clean
 	@cd viewer && $(MAKE) clean
 debug:
 	@$(MAKE) $(DEBUG) \
 	"CFLAGS := $(CFLAGS) -g -DG_ENABLE_DEBUG"
 install: text
+	@cd draw   && $(MAKE) install $(RELEASE)
 	@cd viewer && $(MAKE) install $(RELEASE)
 	glib-compile-schemas $(SCHEMAS)
 release:
@@ -27,7 +29,8 @@ release:
 schemas:
 	glib-compile-schemas $(SCHEMAS)
 uninst:
-	@cd viewer && $(MAKE) uninst $(RELEASE)
+	@cd draw   && $(MAKE) uninst
+	@cd viewer && $(MAKE) uninst
 	glib-compile-schemas $(SCHEMAS)
 draw text viewer:
 	@cd $@ && $(MAKE)

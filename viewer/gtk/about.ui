@@ -8,6 +8,6 @@
 		<property name="logo-icon-name">viewer</property>
 		<property name="modal">true</property>
 		<property name="program-name" translatable="true">Picture Viewer</property>
-		<property name="website">https://github.com/mi19a009/pictureviewer/</property>
+		<property name="website">https://github.com/mi19a009/e/</property>
 	</object>
 </interface>

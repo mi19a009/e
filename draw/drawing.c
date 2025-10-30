@@ -5,15 +5,8 @@
 #include "drawing.h"
 #define APPLICATION_ID    "com.github.mi19a009.Draw"
 #define APPLICATION_FLAGS G_APPLICATION_HANDLES_OPEN
-#define GETTEXT_CODESET   "UTF-8"
-#define GETTEXT_PACKAGE   "github-mi19a009-e"
-#define GSETTINGS_KEY     "GSETTINGS_SCHEMA_DIR"
-#define GSETTINGS_VALUE   "schemas"
 #define LOCALE            ""
 #define RESOURCE_FORMAT   "/com/github/mi19a009/Draw/%s"
-#ifndef GETTEXT_PATH
-#define GETTEXT_PATH      "locale"
-#endif
 
 /*******************************************************************************
 アプリケーションのメイン エントリ ポイントです。
@@ -23,9 +16,6 @@ main (int argc, char *argv [])
 {
 	GApplication *application;
 	int exitcode;
-#ifndef NDEBUG
-	g_setenv (GSETTINGS_KEY, GSETTINGS_VALUE, FALSE);
-#endif
 	setlocale (LC_ALL, LOCALE);
 	bindtextdomain (GETTEXT_PACKAGE, GETTEXT_PATH);
 	bind_textdomain_codeset (GETTEXT_PACKAGE, GETTEXT_CODESET);

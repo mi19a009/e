@@ -2,5 +2,5 @@
 Type=Application
 StartupNotify=true
 Name=Draw
-Icon=com.github.mi19a009.Draw
 Exec=
+Icon=
